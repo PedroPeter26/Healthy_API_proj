@@ -25,6 +25,12 @@ import Configuration from './Configuration';
  *        email:
  *          type: string
  *          example: bolillo@gmail.com
+ *        nickname:
+ *          type: string
+ *          example: '@bolillo1'
+ *        phone:
+ *          type: string
+ *          example: 8715889697
  *        password:
  *          type: string
  *          example: passwd1234
@@ -52,6 +58,12 @@ export default class User extends BaseModel {
 
   @column.dateTime({ autoCreate: true })
   public emailVerifiedAt: DateTime;
+
+  @column()
+  public nickname: string
+
+  @column()
+  public phone: string
 
   @column()
   public verificationCode: string | null;

@@ -1,5 +1,6 @@
 import Mail from '@ioc:Adonis/Addons/Mail'
 import Hash from '@ioc:Adonis/Core/Hash'
+import { schema, rules } from '@ioc:Adonis/Core/Validator'
 import { HttpContextContract } from '@ioc:Adonis/Core/HttpContext'
 import User from 'App/Models/User'
 import Env from '@ioc:Adonis/Core/Env'
@@ -161,6 +162,8 @@ export default class UsersController {
    *              name: John
    *              lastname: Doe
    *              email: john.doe@example.com
+   *              nickname: '@johndoe'
+   *              phone: "1234567890"
    *              password: password123
    *      responses:
    *        201:
@@ -251,66 +254,51 @@ export default class UsersController {
    *          - email
    *          - password
    */
-  public async register({ request, response }: HttpContextContract) {
-    process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
-    try {
-      const name = request.input('name');
-      const lastname = request.input('lastname');
-      const email = request.input('email')
-      const password = request.input('password');
-      
-      const nameRegex = /^[A-Za-z\s]+$/;
-        if (!nameRegex.test(name)) {
-            return response.status(400).json({
-                type: 'Error',
-                title: 'Error de credenciales',
-                message: 'Error al crear usuario',
-                error: 'El nombre solo puede contener letras y espacios',
-            });
-        }
 
-        const lastnameRegex = /^[A-Za-z\s]+$/;
-        if (!lastnameRegex.test(lastname)) {
-            return response.status(400).json({
-                type: 'Error',
-                title: 'Error de credenciales',
-                message: 'Error al crear usuario',
-                error: 'El apellido solo puede contener letras y espacios',
-            });
-        }
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(email)) {
-        return response.status(400).json({
-          type: 'Error',
-          title: 'Error de credenciales',
-          message: 'Error al crear usuario',
-          error: 'Formato de correo electrónico inválido',
-        });
-      }
+  public async register({ request, response }: HttpContextContract) {
+    try {
+      console.log('Iniciando registro');
+      const validationSchema = schema.create({
+        email: schema.string({}, [
+          rules.email(),
+          rules.unique({ table: 'users', column: 'email' }),
+        ]),
+        password: schema.string({}, [rules.minLength(8),]),
+        nickname: schema.string({}, [
+          rules.regex(/^@/),
+          rules.unique({ table: 'users', column: 'nickname' }),
+        ]),
+        phone: schema.string({}, [
+          rules.regex(/^\d{10}$/),
+          rules.unique({ table: 'users', column: 'phone' }),
+        ]),
+        name: schema.string({}, [
+          rules.maxLength(180),
+          rules.regex(/^[a-zA-Z\s]+$/),
+        ]),
+        lastname: schema.string({}, [
+          rules.maxLength(180),
+          rules.regex(/^[a-zA-Z\s]+$/),
+        ]),
+      })
+
+      const validatedData = await request.validate({
+        schema: validationSchema,
+      })
+
+      console.log('Validación exitosa');
+
+      const newUser = await User.create({
+        name: validatedData.name,
+        lastname: validatedData.lastname,
+        email: validatedData.email,
+        nickname: validatedData.nickname,
+        phone: validatedData.phone,
+        password: await Hash.make(validatedData.password),
+      })
   
-      const existingUser = await User.findBy('email', email);
-      if (existingUser) {
-        return response.status(400).json({
-          type: 'Error',
-          message: 'Error al crear usuario',
-          error: 'Correo electrónico ya registrado',
-        });
-      }
-  
-      if (password.length < 8) {
-        return response.status(400).json({
-          type: 'Error',
-          message: 'Error al crear usuario',
-          error: 'La contraseña debe tener al menos 8 caracteres',
-        });
-      }
-  
-      const newUser = new User();
-      newUser.name = name;
-      newUser.lastname = lastname;
-      newUser.email = email;
-      newUser.password = await Hash.make(password);
-  
+      console.log('Usuario creado:', newUser.toJSON());
+
       const verificationCode = this.generateVerificationCode();
       newUser.verificationCode = verificationCode;
   
@@ -321,34 +309,31 @@ export default class UsersController {
       await Mail.send((message) => {
         message
           .from(Env.get('SMTP_USERNAME'), 'Healthy App')
-          .to(email)
+          .to(newUser.email)
           .subject('Healthy App - Verificación de cuenta')
           .htmlView('emails/welcome', emailData);
       });
+      console.log('Email enviado');
   
-      const accountSid = Env.get('TWILIO_ACCOUNT_SID')
-      const authToken = Env.get('TWILIO_AUTH_TOKEN')
-      const client = require('twilio')(accountSid, authToken)
+      // const accountSid = Env.get('TWILIO_ACCOUNT_SID')
+      // const authToken = Env.get('TWILIO_AUTH_TOKEN')
+      // const client = require('twilio')(accountSid, authToken)
   
-      await client.messages.create({
-        body: "Gracias por registrarte en HealthyApp :D",
-        from: Env.get('TWILIO_FROM_NUMBER'),
-        to:`+528714446301`
-      })
+      // await client.messages.create({
+      //   body: "Gracias por registrarte en HealthyApp :D",
+      //   from: Env.get('TWILIO_FROM_NUMBER'),
+      //   to:`+52 8715889697`
+      // })
   
+      console.log('Preparando respuesta positiva');
       return response.status(201).json({
         type: 'Success!!',
         title: 'Registro correctamente',
-        message:'Usuario registrado correctamente',
-        data: {
-          user_id: newUser.id,
-          name: newUser.name,
-          lastname: newUser.lastname,
-          email: newUser.email,
-          message: 'Se ha enviado un codigo de verificacion a tu correo electromico'
-        },
+        message: 'Usuario registrado correctamente, se ha enviado un código de verificación a tu email',
+        data: { newUser }
       });
     } catch (error) {
+      console.error('Error en registro:', error);
       return response.status(400).json({
         type: 'Error',
         title: 'Error registrar usuario',
@@ -356,11 +341,14 @@ export default class UsersController {
         error: error.message,
       });
     }
-  }  
+  }
+
+  // ! FUNC
   private generateVerificationCode() {
     const randomNumber = Math.floor(1000 + Math.random() * 9000);
     return randomNumber.toString();
   }
+
 /**
  * @swagger
  * /api/users/actualizar:
