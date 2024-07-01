@@ -1047,7 +1047,7 @@ public async update({ auth, request, response }: HttpContextContract) {
         })
       }
 
-      const verificationCode = this.generarcodigo()
+      const verificationCode = this.generateVerificationCode()
 
       user.verificationCode = verificationCode
       await user.save()
@@ -1070,10 +1070,7 @@ public async update({ auth, request, response }: HttpContextContract) {
       })
     }
   }
-  public generarcodigo() {
-    const randomNumber = Math.floor(1000 + Math.random() * 9000)
-    return randomNumber.toString()
-  }
+
   /**
 * @swagger
 * /api/users/RecuperarPassword:
