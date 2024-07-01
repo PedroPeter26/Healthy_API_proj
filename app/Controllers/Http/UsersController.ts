@@ -163,7 +163,6 @@ export default class UsersController {
    *              lastname: Doe
    *              email: john.doe@example.com
    *              nickname: '@johndoe'
-   *              phone: "1234567890"
    *              password: password123
    *      responses:
    *        201:
@@ -268,10 +267,6 @@ export default class UsersController {
           rules.regex(/^@/),
           rules.unique({ table: 'users', column: 'nickname' }),
         ]),
-        phone: schema.string({}, [
-          rules.regex(/^\d{10}$/),
-          rules.unique({ table: 'users', column: 'phone' }),
-        ]),
         name: schema.string({}, [
           rules.maxLength(180),
           rules.regex(/^[a-zA-Z\s]+$/),
@@ -293,7 +288,6 @@ export default class UsersController {
         lastname: validatedData.lastname,
         email: validatedData.email,
         nickname: validatedData.nickname,
-        phone: validatedData.phone,
         password: await Hash.make(validatedData.password),
       })
   
