@@ -322,6 +322,7 @@ export default class UsersController {
         type: 'Success',
         title: 'Registro exitoso',
         message: 'Usuario registrado correctamente, se ha enviado un código de verificación a tu email',
+        data: newUser
       });
     } catch (error) {
       console.error('Error en registro:', error);
