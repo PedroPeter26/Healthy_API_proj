@@ -254,52 +254,59 @@ export default class UsersController {
    *          - password
    */
 
-  public async register({ request, response }: HttpContextContract) {
+  public async register({ request, response }) {
     try {
+      const { name, lastname, email, password } = await request.validate({
+        schema: schema.create({
+          email: schema.string({}, [
+            rules.email(),
+          ]),
+          password: schema.string({}, [rules.minLength(8)]),
+          name: schema.string({}, [
+            rules.maxLength(180),
+            rules.regex(/^[a-zA-Z\s]+$/),
+          ]),
+          lastname: schema.string({}, [
+            rules.maxLength(180),
+            rules.regex(/^[a-zA-Z\s]+$/),
+          ]),
+        }),
+      });
+  
       console.log('Iniciando registro');
-      const validationSchema = schema.create({
-        email: schema.string({}, [
-          rules.email(),
-          rules.unique({ table: 'users', column: 'email' }),
-        ]),
-        password: schema.string({}, [rules.minLength(8),]),
-        nickname: schema.string({}, [
-          rules.regex(/^@/),
-          rules.unique({ table: 'users', column: 'nickname' }),
-        ]),
-        name: schema.string({}, [
-          rules.maxLength(180),
-          rules.regex(/^[a-zA-Z\s]+$/),
-        ]),
-        lastname: schema.string({}, [
-          rules.maxLength(180),
-          rules.regex(/^[a-zA-Z\s]+$/),
-        ]),
-      })
-
-      const validatedData = await request.validate({
-        schema: validationSchema,
-      })
-
+  
+      // Verificar si el usuario ya existe manualmente
+      const existingUser = await User.findBy('email', email);
+      if (existingUser) {
+        console.log('Usuario ya existe:', existingUser.toJSON());
+        return response.status(400).json({
+          type: 'Error',
+          title: 'Usuario existente',
+          message: 'El correo electrónico ya está registrado.',
+        });
+      }
+  
       console.log('Validación exitosa');
-
+  
+      // Crear nuevo usuario
       const newUser = await User.create({
-        name: validatedData.name,
-        lastname: validatedData.lastname,
-        email: validatedData.email,
-        nickname: validatedData.nickname,
-        password: await Hash.make(validatedData.password),
-      })
-
+        name,
+        lastname,
+        email,
+        password: await Hash.make(password),
+      });
+  
       console.log('Usuario creado:', newUser.toJSON());
-
+  
+      // Generar código de verificación y actualizar usuario
       const verificationCode = this.generateVerificationCode();
       newUser.verificationCode = verificationCode;
-
       await newUser.save();
-
+  
+      console.log('Preparando envío de correo');
+  
+      // Enviar correo electrónico de verificación
       const emailData = { code: verificationCode };
-
       await Mail.send((message) => {
         message
           .from(Env.get('SMTP_USERNAME'), 'Healthy App')
@@ -307,35 +314,45 @@ export default class UsersController {
           .subject('Healthy App - Verificación de cuenta')
           .htmlView('emails/welcome', emailData);
       });
-      console.log('Email enviado');
-
-      // const accountSid = Env.get('TWILIO_ACCOUNT_SID')
-      // const authToken = Env.get('TWILIO_AUTH_TOKEN')
-      // const client = require('twilio')(accountSid, authToken)
-
-      // await client.messages.create({
-      //   body: "Gracias por registrarte en HealthyApp :D",
-      //   from: Env.get('TWILIO_FROM_NUMBER'),
-      //   to:`+52 8715889697`
-      // })
-
-      console.log('Preparando respuesta positiva');
+  
+      console.log('Correo electrónico enviado');
+  
+      // Respuesta exitosa
       return response.status(201).json({
-        type: 'Success!!',
-        title: 'Registro correctamente',
+        type: 'Success',
+        title: 'Registro exitoso',
         message: 'Usuario registrado correctamente, se ha enviado un código de verificación a tu email',
-        data: { newUser }
       });
     } catch (error) {
       console.error('Error en registro:', error);
+  
+      if (error.code === 'E_VALIDATION_FAILURE') {
+        const customErrors = error.messages.errors.map(err => {
+          if (err.rule === 'minLength' && err.field === 'password') {
+            return 'El mínimo de contraseña son 8 caracteres';
+          }
+          return err.message;
+        });
+  
+        return response.status(400).json({
+          type: 'Error',
+          title: 'Error al registrar usuario',
+          message: 'Error al crear usuario',
+          error: customErrors.join(', '),
+        });
+      }
+  
       return response.status(400).json({
         type: 'Error',
-        title: 'Error registrar usuario',
+        title: 'Error al registrar usuario',
         message: 'Error al crear usuario',
         error: error.message,
       });
     }
   }
+  
+  
+  
 
   // ! FUNC
   private generateVerificationCode() {
