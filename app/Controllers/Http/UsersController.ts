@@ -351,9 +351,6 @@ export default class UsersController {
       });
     }
   }
-  
-  
-  
 
   // ! FUNC
   private generateVerificationCode() {
@@ -1038,42 +1035,67 @@ export default class UsersController {
   public async correorecuperacion({ request, response }: HttpContextContract) {
     process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
     try {
-      const email = request.input('email')
-      const user = await User.query().where('email', email).preload('dispositivo', (dispositivo) => {
-        dispositivo.preload('sensores', (sensor) => {
-          sensor.preload('sensorType')
-        }).preload('tipoDispositivo')
-      }).preload('configurations').first()
+        const email = request.input('email')
+        const user = await User.query().where('email', email).preload('dispositivo', (dispositivo) => {
+            dispositivo.preload('sensores', (sensor) => {
+                sensor.preload('sensorType')
+            }).preload('tipoDispositivo')
+        }).preload('configurations').first()
 
-      if (!user) {
-        return response.status(400).json({
-          message: 'No se encontró un usuario con este correo electrónico.',
+        if (!user) {
+            return response.status(400).json({
+                type: "Error",
+                title: "Administrador no encontrado",
+                message: 'No se encontró un administrador con este correo electrónico.',
+                error: "Administrador no encontrado",
+                data: null
+            })
+        }
+
+        const verificationCode = this.generateVerificationCode()
+
+        user.verificationCode = verificationCode
+        await user.save()
+
+        await Mail.send((message) => {
+            message
+                .from(Env.get('SMTP_USERNAME'), 'Healthy App')
+                .to(email)
+                .subject('Recuperación de Contraseña')
+                .htmlView('emails/recuperacion', { verificationCode })
         })
-      }
 
-      const verificationCode = this.generateVerificationCode()
-
-      user.verificationCode = verificationCode
-      await user.save()
-
-      await Mail.send((message) => {
-        message
-          .from(Env.get('SMTP_USERNAME'), 'Healthy App')
-          .to(email)
-          .subject('Recuperación de Contraseña')
-          .htmlView('emails/recuperacion', { verificationCode })
-      })
-
-      return response.status(200).json({
-        message: 'Se ha enviado un correo electrónico con un código de recuperación.',
-      })
+        return response.status(200).json({
+            type: "Success",
+            title: "Correo enviado",
+            message: 'Se ha enviado un correo electrónico con un código de recuperación.',
+            data: {
+                id: user.id,
+                name: user.name,
+                lastname: user.lastname,
+                email: user.email,
+                email_verified_at: user.emailVerifiedAt,
+                verification_code: verificationCode,
+                password: user.password,
+                created_at: user.created_at,
+                updated_at: user.updated_at,
+                dispositivo: user.dispositivo,
+                configurations: user.configurations
+            },
+            error: null
+        })
     } catch (error) {
-      return response.status(500).json({
-        message: 'Error al enviar el correo electrónico de recuperación.',
-        error: error.message,
-      })
+        return response.status(500).json({
+            type: "Error",
+            title: "Error al enviar correo",
+            message: 'Error al enviar el correo electrónico de recuperación.',
+            error: error.message,
+            data: null
+        })
     }
-  }
+}
+
+
 
   /**
 * @swagger
