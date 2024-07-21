@@ -11,7 +11,7 @@ export default class extends BaseSeeder {
       { id: 5, name: 'Distancia', unit: 'm' },
       { id: 6, name: 'Pasos', unit: 'step' },
       { id: 7, name: 'Pantalla', unit: 'mode' },
-      { id: 8, name: 'Tiempo', unit: 'hrs' }
+      { id: 8, name: 'Tiempo', unit: 'hrs' } //?Poner en "pesa" mongo
     ])
   }
 }
