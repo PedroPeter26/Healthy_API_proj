@@ -30,4 +30,7 @@ export default Env.rules({
     PG_USER: Env.schema.string(),
     PG_PASSWORD: Env.schema.string.optional(),
     PG_DB_NAME: Env.schema.string(),
+    MONGO_STRING_CONNECTION: Env.schema.string(),
+    MONGO_DATABASE: Env.schema.string(),
+    MONGO_DEVICES_COLLECTION: Env.schema.string(),
 })

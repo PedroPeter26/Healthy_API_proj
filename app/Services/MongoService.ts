@@ -1,9 +1,12 @@
 import connect from "Config/mongo";
+const EventEmitter = require('events')
 
-class MongoService {
+class MongoService extends EventEmitter{
     private db: any
+    private lastData: any
 
     constructor() {
+        super()
         this.init()
     }
 
@@ -21,7 +24,7 @@ class MongoService {
         }
     }
 
-    private async getCollection(collectionName: string) {
+    public async getCollection(collectionName: string) {
         await this.ensureInit();
         if (!this.db) {
             throw new Error('Failed to connect to the database.');
@@ -78,28 +81,98 @@ class MongoService {
         return await collection.aggregate(pipeline).toArray()
     }
 
-    // * Custom Aggregations
-
+    
     async getSensorLastData(dispositiveID: number, sensorID: number) {
-        const agg = [
-          { '$match': { 'DispositiveID': dispositiveID } },
-          { '$unwind': '$Sensors' },
-          { '$match': { 'Sensors.sensorID': sensorID } },
-          { '$unwind': '$Sensors.data' },
-          { '$sort': { 'Sensors.data.timestamp': -1 } },
-          { '$limit': 1 },
-          { '$project': {
-              '_id': 0,
-              'value': '$Sensors.data.value',
-              'unit': '$Sensors.unit',
-              'sensorID': '$Sensors.sensorID',
-              'dispositiveID': '$DispositiveID',
-              'userID': '$userID'
-            }
-          }
-        ]
-        return await this.aggregate('Dispositives', agg)
+        return await this.aggregate('Dispositives', this.getSensorLastDataAgg(dispositiveID,sensorID))
     }
+
+    public getSensorLastDataAgg(dispositiveID: number, sensorID: number){
+        return [
+            { '$match': { 'DispositiveID': dispositiveID } },
+            { 
+              '$project': {
+                'Sensors': {
+                  '$filter': {
+                    'input': '$Sensors',
+                    'as': 'sensor',
+                    'cond': { '$eq': ['$$sensor.sensorID', sensorID] }
+                  }
+                },
+                'DispositiveID': 1,
+                'userID': 1
+              }
+            },
+            { 
+              '$project': {
+                'sensor': { 
+                  '$arrayElemAt': ['$Sensors', 0]
+                },
+                'DispositiveID': 1,
+                'userID': 1
+              }
+            },
+            { 
+              '$project': {
+                'sensor': {
+                  'data': {
+                    '$slice': [
+                      { 
+                        '$filter': {
+                          'input': '$sensor.data',
+                          'as': 'data',
+                          'cond': {}
+                        }
+                      },
+                      -1
+                    ]
+                  },
+                  'unit': '$sensor.unit',
+                  'sensorID': '$sensor.sensorID'
+                },
+                'DispositiveID': 1,
+                'userID': 1
+              }
+            },
+            { 
+              '$project': {
+                'value': { '$arrayElemAt': ['$sensor.data.value', 0] },
+                'unit': '$sensor.unit',
+                'sensorID': '$sensor.sensorID',
+                'dispositiveID': '$DispositiveID',
+                'timestamp': { '$arrayElemAt': ['$sensor.data.timestamp', 0] },
+                'userID': '$userID'
+              }
+            }
+          ]
+    }
+    
+  async WatchLastData(dispositiveID: number, sensorID: number) {
+
+    const col = await this.getCollection("Dispositives")
+    this.lastData = await col.watch([
+        { '$match': { 'DispositiveID': dispositiveID } }
+      ])
+
+    this.lastData.on('resumeTokenChanged', (next) => {
+        console.log('Change detected:', next);
+        // Process the change (you can add more processing logic here)
+        this.lastData = next;
+      });
+  
+      this.lastData.on('error', (error) => {
+        console.error('Error in change stream:', error);
+      });
+  
+      this.lastData.on('end', () => {
+        console.log('Change stream closed');
+      });
+  }
+ 
+  async CloseLastData() {
+    if (this.lastData) {
+      await this.lastData.close()
+    }
+  }
 }
 
 export default new MongoService()
