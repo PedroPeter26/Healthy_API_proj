@@ -22,6 +22,17 @@ export default class SensorsController {
     }
   }
 
+  public async pushData({ request, response }: HttpContextContract) {
+    try {
+      const { dispositiveID, sensorID, Data } = request.only(['dispositiveID', 'sensorID', 'Data']);
+      const result = await MongoService.pushDataToSensor(dispositiveID, sensorID, Data);
+      return response.json(result);
+    } catch (error) {
+      console.error('Error pushing sensor data:', error);
+      return response.status(500).json({ message: 'Internal Server Error' });
+    }
+  }
+
   public async edit({}: HttpContextContract) {}
 
   public async update({}: HttpContextContract) {}

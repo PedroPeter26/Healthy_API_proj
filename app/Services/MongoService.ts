@@ -3,7 +3,7 @@ const EventEmitter = require('events')
 
 class MongoService extends EventEmitter{
     private db: any
-    private lastData: any
+    public dataCursors = new Array()
 
     constructor() {
         super()
@@ -81,96 +81,135 @@ class MongoService extends EventEmitter{
         return await collection.aggregate(pipeline).toArray()
     }
 
-    
-    async getSensorLastData(dispositiveID: number, sensorID: number) {
-        return await this.aggregate('Dispositives', this.getSensorLastDataAgg(dispositiveID,sensorID))
+    public async pushDataToSensor(dispositiveID: number, sensorID: number, Data: any) {
+        const collection = await this.getCollection('Dispositives')
+        return await collection.updateOne(
+            { DispositiveID: dispositiveID, 'Sensors.sensorID': sensorID },
+            { $push: { 'Sensors.$.data': Data } }
+        )
     }
 
-    public getSensorLastDataAgg(dispositiveID: number, sensorID: number){
-        return [
+    
+    async getSensorLastData(dispositiveID: number, sensorID: number) {
+        let agg = [
             { '$match': { 'DispositiveID': dispositiveID } },
-            { 
-              '$project': {
-                'Sensors': {
-                  '$filter': {
-                    'input': '$Sensors',
-                    'as': 'sensor',
-                    'cond': { '$eq': ['$$sensor.sensorID', sensorID] }
+            { '$unwind': '$Sensors' },
+            { '$match': { 'Sensors.sensorID': sensorID } },
+            { '$unwind': '$Sensors.data' },
+            { '$sort': { 'Sensors.data.timestamp': -1 } },
+            { '$limit': 1 },
+            { '$project': {
+                '_id': 0,
+                'value': '$Sensors.data.value',
+                'unit': '$Sensors.unit',
+                'sensorID': '$Sensors.sensorID',
+                'dispositiveID': '$DispositiveID',
+                'timestamp': '$Sensors.data.timestamp',
+                'userID': '$userID'
+              }
+            }
+          ]
+        return await this.aggregate('Dispositives', agg)
+    }
+
+    
+
+    public getSensorLastDataAgg(userID: number){
+        return [
+            {
+              $match: {
+                userID: userID
+              }
+            },
+            {
+              $project: {
+                DispositiveID: 1,
+                name: 1,
+                Sensors: {
+                  $map: {
+                    input: "$Sensors",
+                    as: "sensor",
+                    in: {
+                      sensorID: "$$sensor.sensorID",
+                      sensorType: "$$sensor.sensorType",
+                      unit: "$$sensor.unit",
+                      lastData: {
+                        $arrayElemAt: ["$$sensor.data", -1]
+                      }
+                    }
                   }
                 },
-                'DispositiveID': 1,
-                'userID': 1
-              }
-            },
-            { 
-              '$project': {
-                'sensor': { 
-                  '$arrayElemAt': ['$Sensors', 0]
-                },
-                'DispositiveID': 1,
-                'userID': 1
-              }
-            },
-            { 
-              '$project': {
-                'sensor': {
-                  'data': {
-                    '$slice': [
-                      { 
-                        '$filter': {
-                          'input': '$sensor.data',
-                          'as': 'data',
-                          'cond': {}
-                        }
-                      },
-                      -1
-                    ]
-                  },
-                  'unit': '$sensor.unit',
-                  'sensorID': '$sensor.sensorID'
-                },
-                'DispositiveID': 1,
-                'userID': 1
-              }
-            },
-            { 
-              '$project': {
-                'value': { '$arrayElemAt': ['$sensor.data.value', 0] },
-                'unit': '$sensor.unit',
-                'sensorID': '$sensor.sensorID',
-                'dispositiveID': '$DispositiveID',
-                'timestamp': { '$arrayElemAt': ['$sensor.data.timestamp', 0] },
-                'userID': '$userID'
+                type: 1,
+                userID: 1
               }
             }
           ]
     }
     
-  async WatchLastData(dispositiveID: number, sensorID: number) {
+  async WatchLastData(dispositiveID: number, sensorID: number, client: any) {
 
     const col = await this.getCollection("Dispositives")
-    this.lastData = await col.watch([
-        { '$match': { 'DispositiveID': dispositiveID } }
-      ])
+    const changeStream = await col.watch([
+        { $match: { 'fullDocument.DispositiveID': dispositiveID } },
+        { $match: { 'operationType': 'update' } }
+      ],
+      { fullDocument: "updateLookup" }
+    );
 
-    this.lastData.on('resumeTokenChanged', (next) => {
-        console.log('Change detected:', next);
-        // Process the change (you can add more processing logic here)
-        this.lastData = next;
-      });
-  
-      this.lastData.on('error', (error) => {
-        console.error('Error in change stream:', error);
-      });
-  
-      this.lastData.on('end', () => {
-        console.log('Change stream closed');
-      });
+    this.dataCursors.push({ data: changeStream, client: client })
+
+    changeStream.on('change', (next: any) => {
+        const fullDocument = next.fullDocument
+        if (!fullDocument) return
+        const sensor = fullDocument.Sensors.find((sensor: any) => sensor.sensorID === sensorID)
+        if (sensor) {
+            this.emit('sendChange',{
+                data: sensor.data[sensor.data.length - 1],
+                sensorID: sensorID,
+                client: client,
+                type: "lastData"
+            })
+        }
+    })
+
   }
- 
-  async CloseLastData() {
-    if (this.lastData) {
-      await this.lastData.close()
+
+    async WatchAllData(dispositiveID: number, client: any) {
+        const col = await this.getCollection("Dispositives")
+        const changeStream = await col.watch([
+                { $match: { 'fullDocument.DispositiveID': dispositiveID } },
+                { $match: { 'operationType': 'update' } }
+            ],
+            { fullDocument: "updateLookup" }
+        )
+    
+        this.dataCursors.push({ data: changeStream, client: client })
+    
+        changeStream.on('change', (next: any) => {
+            const fullDocument = next.fullDocument
+            fullDocument.Sensors.forEach((sensor: any) => {
+                if (sensor.data && sensor.data.length > 0) {
+                  sensor.data = sensor.data[sensor.data.length - 1];
+                }
+              })
+            if (!fullDocument) return
+            this.emit('sendChange',{
+                data: fullDocument.Sensors,
+                dispositiveID: dispositiveID,
+                client: client,
+                type: "AllData"
+            })
+            
+        })
+    
+    }
+
+  async CloseDataCursor(client: any) {
+    for (let i = 0; i < this.dataCursors.length; i++) {
+      if (this.dataCursors[i].client === client) {
+        await this.dataCursors[i].data.close()
+        this.dataCursors.splice(i, 1)
+      }
     }
   }
 }
