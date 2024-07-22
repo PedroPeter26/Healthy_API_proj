@@ -71,6 +71,16 @@ class MongoService {
         return await collection.updateMany(query, { $set: update });
     }
 
+    // * Custom CRUD @Queries
+
+    public async pushDataToSensor(dispositiveID: number, sensorID: number, Data: any) {
+        const collection = await this.getCollection('Dispositives')
+        return await collection.updateOne(
+            { DispositiveID: dispositiveID, 'Sensors.sensorID': sensorID },
+            { $push: { 'Sensors.$.data': Data } }
+        )
+    }
+
     // * General purpose Aggregation @Func
 
     public async aggregate(collectionName: string, pipeline: any[]) {
