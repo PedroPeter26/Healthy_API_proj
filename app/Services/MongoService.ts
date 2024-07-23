@@ -9,15 +9,15 @@ class MongoService {
 
     async init() {
         try {
-            this.db = await connect();
+            this.db = await connect()
         } catch (error) {
-            console.error('Error connecting to MongoDB:', error);
+            console.error('Error connecting to MongoDB:', error)
         }
     }
 
     private async ensureInit() {
         if (!this.db) {
-          await this.init();
+          await this.init()
         }
     }
 
@@ -32,43 +32,43 @@ class MongoService {
     // * General purpose CRUD funcs.
 
     public async findOne(collectionName: string, query: any) {
-        const collection = await this.getCollection(collectionName);
-        return await collection.findOne(query);
+        const collection = await this.getCollection(collectionName)
+        return await collection.findOne(query)
     }
     
     public async findMany(collectionName: string, query: any) {
-        const collection = await this.getCollection(collectionName);
-        return await collection.find(query).toArray();
+        const collection = await this.getCollection(collectionName)
+        return await collection.find(query).toArray()
     }
     
     public async insertOne(collectionName: string, document: any) {
-        const collection = await this.getCollection(collectionName);
-        return await collection.insertOne(document);
+        const collection = await this.getCollection(collectionName)
+        return await collection.insertOne(document)
     }
     
     public async insertMany(collectionName: string, documents: any[]) {
-        const collection = await this.getCollection(collectionName);
-        return await collection.insertMany(documents);
+        const collection = await this.getCollection(collectionName)
+        return await collection.insertMany(documents)
     }
     
     public async deleteOne(collectionName: string, query: any) {
-        const collection = await this.getCollection(collectionName);
-        return await collection.deleteOne(query);
+        const collection = await this.getCollection(collectionName)
+        return await collection.deleteOne(query)
     }
     
     public async deleteMany(collectionName: string, query: any) {
-        const collection = await this.getCollection(collectionName);
-        return await collection.deleteMany(query);
+        const collection = await this.getCollection(collectionName)
+        return await collection.deleteMany(query)
     }
     
     public async updateOne(collectionName: string, query: any, update: any) {
-        const collection = await this.getCollection(collectionName);
-        return await collection.updateOne(query, { $set: update });
+        const collection = await this.getCollection(collectionName)
+        return await collection.updateOne(query, { $set: update })
     }
     
     public async updateMany(collectionName: string, query: any, update: any) {
-        const collection = await this.getCollection(collectionName);
-        return await collection.updateMany(query, { $set: update });
+        const collection = await this.getCollection(collectionName)
+        return await collection.updateMany(query, { $set: update })
     }
 
     // * Custom CRUD @Queries
@@ -78,6 +78,19 @@ class MongoService {
         return await collection.updateOne(
             { DispositiveID: dispositiveID, 'Sensors.sensorID': sensorID },
             { $push: { 'Sensors.$.data': Data } }
+        )
+    }
+
+    public async deleteDispositive(dispositiveID: number) {
+        const collection = await this.getCollection('Dispositives')
+        return await collection.deleteOne({ 'DispositiveID': dispositiveID })
+    }
+
+    public async removeSensor(dispositiveID: number, sensorID: number) {
+        const collection = await this.getCollection('Dispositives')
+        return await collection.updateOne(
+          { DispositiveID: dispositiveID },
+          { $pull: { Sensors: { sensorID: sensorID } } }
         )
     }
 
