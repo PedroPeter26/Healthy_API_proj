@@ -36,5 +36,9 @@
     "reflect-metadata": "^0.2.2",
     "socket.io": "^4.7.5",
     "source-map-support": "^0.5.21"
+  },
+  "optionalDependencies": {
+    "bufferutil": "^4.0.8",
+    "utf-8-validate": "^6.0.4"
   }
 }
