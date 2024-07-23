@@ -1,9 +1,12 @@
 import connect from "Config/mongo";
+const EventEmitter = require('events')
 
-class MongoService {
+class MongoService extends EventEmitter {
     private db: any
+    public dataCursors = new Array()
 
     constructor() {
+        super()
         this.init()
     }
 
@@ -122,6 +125,105 @@ class MongoService {
           }
         ]
         return await this.aggregate('Dispositives', agg)
+    }
+
+    // * WS @Funcs
+
+    public getSensorLastDataAgg(userID: number){
+        return [
+            {
+              $match: {
+                userID: userID
+              }
+            },
+            {
+              $project: {
+                DispositiveID: 1,
+                name: 1,
+                Sensors: {
+                  $map: {
+                    input: "$Sensors",
+                    as: "sensor",
+                    in: {
+                      sensorID: "$$sensor.sensorID",
+                      sensorType: "$$sensor.sensorType",
+                      unit: "$$sensor.unit",
+                      lastData: {
+                        $arrayElemAt: ["$$sensor.data", -1]
+                      }
+                    }
+                  }
+                },
+                type: 1,
+                userID: 1
+              }
+            }
+        ]
+    }
+
+    async WatchLastData(dispositiveID: number, sensorID: number, client: any) {
+
+        const col = await this.getCollection("Dispositives")
+        const changeStream = await col.watch([
+            { $match: { 'fullDocument.DispositiveID': dispositiveID } },
+            { $match: { 'operationType': 'update' } }
+          ],
+          { fullDocument: "updateLookup" }
+        );
+    
+        this.dataCursors.push({ data: changeStream, client: client })
+    
+        changeStream.on('change', (next: any) => {
+            const fullDocument = next.fullDocument
+            if (!fullDocument) return
+            const sensor = fullDocument.Sensors.find((sensor: any) => sensor.sensorID === sensorID)
+            if (sensor) {
+                this.emit('sendChange',{
+                    data: sensor.data[sensor.data.length - 1],
+                    sensorID: sensorID,
+                    client: client,
+                    type: "lastData"
+                })
+            }
+        })
+    }
+
+    async WatchAllData(dispositiveID: number, client: any) {
+        const col = await this.getCollection("Dispositives")
+        const changeStream = await col.watch([
+                { $match: { 'fullDocument.DispositiveID': dispositiveID } },
+                { $match: { 'operationType': 'update' } }
+            ],
+            { fullDocument: "updateLookup" }
+        )
+    
+        this.dataCursors.push({ data: changeStream, client: client })
+    
+        changeStream.on('change', (next: any) => {
+            const fullDocument = next.fullDocument
+            fullDocument.Sensors.forEach((sensor: any) => {
+                if (sensor.data && sensor.data.length > 0) {
+                  sensor.data = sensor.data[sensor.data.length - 1];
+                }
+              })
+            if (!fullDocument) return
+            this.emit('sendChange',{
+                data: fullDocument.Sensors,
+                dispositiveID: dispositiveID,
+                client: client,
+                type: "AllData"
+            })
+            
+        })
+    }
+
+    async CloseDataCursor(client: any) {
+        for (let i = 0; i < this.dataCursors.length; i++) {
+            if (this.dataCursors[i].client === client) {
+                await this.dataCursors[i].data.close()
+                this.dataCursors.splice(i, 1)
+            }
+        }
     }
 }
 

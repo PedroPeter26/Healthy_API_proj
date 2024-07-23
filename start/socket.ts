@@ -1,16 +1,29 @@
+import MongoService from 'App/Services/MongoService'
 import Ws from 'App/Services/Ws'
 Ws.boot()
 
-/**
- * Listen for incoming socket connections
- */
-Ws.io.on('connection', (socket) => {
+Ws.io.on('connection', async (socket) => {
+  const mongoService = MongoService
   const client = socket.id
-  console.log(client)
   
-  socket.on('data:emit', (data) => {
-    console.log(data)
-    socket.emit('data:listener', data)
-    socket.broadcast.emit('data:listener', data)
+  mongoService.on('sendChange', (data) => {
+    if(data.client == client){
+      socket.emit('data:listen', data)
+    }
+  })
+
+  socket.on('disconnect', async () => {
+    await mongoService.CloseDataCursor(client)
+  })
+
+  socket.on('data:emit', async (data:any) => {
+    switch (data.type){
+      case "WatchAllData":
+        mongoService.WatchAllData(data.dispositiveID,client)
+        break
+      case "WatchLastData":
+        mongoService.WatchLastData(data.dispositiveID,data.sensorID,client)
+        break
+    }
   })
 })
