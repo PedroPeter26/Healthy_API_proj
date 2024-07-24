@@ -127,6 +127,190 @@ class MongoService extends EventEmitter {
         return await this.aggregate('Dispositives', agg)
     }
 
+    async reportBySensor(dateBegin: string, dateFinish: string, sensorID: number, dispositiveID: number) {
+        const agg = [
+            {
+              '$match': {
+                'DispositiveID': dispositiveID, 
+                'Sensors.sensorID': sensorID
+              }
+            }, {
+              '$unwind': '$Sensors'
+            }, {
+              '$unwind': '$Sensors.data'
+            }, {
+              '$match': {
+                'Sensors.data.timestamp': {
+                  '$gte': dateBegin, 
+                  '$lt': dateFinish
+                }
+              }
+            }, {
+              '$group': {
+                '_id': {
+                  'DispositiveID': '$DispositiveID', 
+                  'sensorID': '$Sensors.sensorID'
+                }, 
+                'name': {
+                  '$first': '$name'
+                }, 
+                'type': {
+                  '$first': '$type'
+                }, 
+                'userID': {
+                  '$first': '$userID'
+                }, 
+                'data': {
+                  '$push': '$Sensors.data'
+                }
+              }
+            }, {
+              '$project': {
+                '_id': 0, 
+                'DispositiveID': '$_id.DispositiveID', 
+                'sensorID': '$_id.sensorID', 
+                'name': 1, 
+                'type': 1, 
+                'userID': 1, 
+                'data': 1
+              }
+            }
+        ]
+        return await this.aggregate('Dispositives', agg)
+    }
+
+    async reportByDevice(dateBegin: string, dateFinish: string, dispositiveID: number) {
+        const agg = [
+            {
+              '$match': {
+                'DispositiveID': dispositiveID
+              }
+            }, {
+              '$project': {
+                'name': 1, 
+                'type': 1, 
+                'userID': 1, 
+                'Sensors': {
+                  '$map': {
+                    'input': '$Sensors', 
+                    'as': 'sensor', 
+                    'in': {
+                      'sensorID': '$$sensor.sensorID', 
+                      'sensorType': '$$sensor.sensorType', 
+                      'unit': '$$sensor.unit', 
+                      'data': {
+                        '$filter': {
+                          'input': '$$sensor.data', 
+                          'as': 'data', 
+                          'cond': {
+                            '$and': [
+                              {
+                                '$gte': [
+                                  '$$data.timestamp', dateBegin
+                                ]
+                              }, {
+                                '$lt': [
+                                  '$$data.timestamp', dateFinish
+                                ]
+                              }
+                            ]
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }, {
+              '$project': {
+                'name': 1, 
+                'type': 1, 
+                'userID': 1, 
+                'Sensors': {
+                  '$filter': {
+                    'input': '$Sensors', 
+                    'as': 'sensor', 
+                    'cond': {
+                      '$gt': [
+                        {
+                          '$size': '$$sensor.data'
+                        }, 0
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+        ]
+        return await this.aggregate('Dispositives', agg)
+    }
+
+    async reportByUser(dateBegin: string, dateFinish: string, userID: number){
+        const agg = [
+            {
+              '$match': {
+                'userID': userID
+              }
+            }, {
+              '$project': {
+                'name': 1, 
+                'type': 1, 
+                'userID': 1, 
+                'Sensors': {
+                  '$map': {
+                    'input': '$Sensors', 
+                    'as': 'sensor', 
+                    'in': {
+                      'sensorID': '$$sensor.sensorID', 
+                      'sensorType': '$$sensor.sensorType', 
+                      'unit': '$$sensor.unit', 
+                      'data': {
+                        '$filter': {
+                          'input': '$$sensor.data', 
+                          'as': 'data', 
+                          'cond': {
+                            '$and': [
+                              {
+                                '$gte': [
+                                  '$$data.timestamp', dateBegin
+                                ]
+                              }, {
+                                '$lt': [
+                                  '$$data.timestamp', dateFinish
+                                ]
+                              }
+                            ]
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }, {
+              '$project': {
+                'name': 1, 
+                'type': 1, 
+                'userID': 1, 
+                'Sensors': {
+                  '$filter': {
+                    'input': '$Sensors', 
+                    'as': 'sensor', 
+                    'cond': {
+                      '$gt': [
+                        {
+                          '$size': '$$sensor.data'
+                        }, 0
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+        ]
+        return await this.aggregate('Dispositives', agg)
+    }
+
     // * WS @Funcs
 
     public getSensorLastDataAgg(userID: number){

@@ -22,6 +22,6 @@ export default class Habit extends BaseModel {
   @column.dateTime({ autoCreate: true, autoUpdate: true })
   public updatedAt: DateTime
 
-  @column.dateTime({ autoCreate: true })
+  @column.dateTime({})
   public deletedAt: DateTime | null
 }

@@ -1,6 +1,8 @@
 import { HttpContextContract } from '@ioc:Adonis/Core/HttpContext'
 import Dispositive from 'App/Models/Dispositive'
+import MongoService from 'App/Services/MongoService'
 import { CreateDispositiveValidator, UpdateDispositiveValidator } from 'App/Validators/DispositiveValidator'
+import Sensor from 'App/Models/Sensor'
 
 export default class DispositivesController {
   public async index({ response }: HttpContextContract) {
@@ -45,7 +47,36 @@ export default class DispositivesController {
     dispositive.userId = user.id
 
     await dispositive.save()
+
+    await this.handleSensorsCreation(dispositive.id, dispositive.dispositiveTypeId,
+      this.createSensors)
+
     return response.status(201).json(dispositive)
+  }
+
+  // * @Func auxiliar a @Create
+  private async createSensors(dispositiveId: number, dispositiveTypeId: number) {
+    const sensorTypes = {
+      1: [1, 2, 3, 4, 5, 6],
+      2: [7, 8]
+    }
+
+    const sensorTypeIds = sensorTypes[dispositiveTypeId] || []
+
+    for (const sensorTypeId of sensorTypeIds) {
+      const sensor = new Sensor()
+      sensor.sensorTypeId = sensorTypeId
+      sensor.dispositiveId = dispositiveId
+      sensor.active = true
+
+      await sensor.save()
+    }
+  }
+
+  // * @Func auxiliar a @Create
+  private async handleSensorsCreation(dispositiveId: number, dispositiveTypeId: number,
+    callback: (dispositiveId: number, dispositiveTypeId: number) => Promise<void>) {
+    await callback(dispositiveId, dispositiveTypeId)
   }
 
   public async update({ request, auth, response }: HttpContextContract) {
@@ -81,9 +112,29 @@ export default class DispositivesController {
     try {
       const dispositive = await Dispositive.query().where('id', id).where('user_id', user.id).firstOrFail()
       await dispositive.delete()
+
+      try {
+        await this.deleteFromMongo(id)
+      } catch (mongoError) {
+        console.error(mongoError.message)
+      }
+
       return response.status(200).json({ message: 'Dispositive deleted successfully' })
     } catch (error) {
       return response.status(404).json({ message: 'Dispositive not found or you do not have permission to delete this dispositive' })
     }
   }
+
+  // * @Func auxiliar para borrar dispositivo en MongoDB
+  private async deleteFromMongo(dispositiveID: number) {
+    try {
+      const result = await MongoService.deleteDispositive(dispositiveID)
+      if (result.deletedCount === 0) {
+        throw new Error('Document not found')
+      }
+    } catch (error) {
+      throw new Error('Error deleting document from MongoDB')
+    }
+  }
+  
 }
