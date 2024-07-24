@@ -97,6 +97,12 @@ class MongoService extends EventEmitter {
         )
     }
 
+    public async updateOneSensor(collectionName: string, query: any, update: any, options: any = {}) {
+      const collection = await this.getCollection(collectionName)
+      return await collection.updateOne(query, update, options)
+    }
+  
+
     // * General purpose Aggregation @Func
 
     public async aggregate(collectionName: string, pipeline: any[]) {

@@ -1,6 +1,7 @@
 import type { HttpContextContract } from '@ioc:Adonis/Core/HttpContext'
 import MongoService from 'App/Services/MongoService'
 import Sensor from 'App/Models/Sensor'
+import SensorType from 'App/Models/SensorType'
 import { schema, rules } from '@ioc:Adonis/Core/Validator'
 
 export default class SensorsController {
@@ -29,6 +30,26 @@ export default class SensorsController {
       sensor.active = true
 
       await sensor.save()
+
+      const sensorType = await SensorType.query().where('id', payload.sensorTypeId).firstOrFail()
+      
+      // Documento para el sensor en MongoDB
+      const sensorDocument = {
+        sensorID: sensor.id,
+        sensorType: sensorType.name,
+        unit: sensorType.unit,
+        data: []
+      }
+
+      // Actualizar el documento en MongoDB
+      const result = await MongoService.updateOneSensor(
+        'Dispositives',
+        { DispositiveID: payload.dispositiveID },
+        { $push: { Sensors: sensorDocument } })
+      if (result.modifiedCount === 0) {
+        return response.status(404).json({ message: 'Dispositive not found or sensor not added' })
+      }
+
       return response.status(201).json({
         type: 'Success',
         title: 'Sensor created!',
