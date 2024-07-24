@@ -4,26 +4,20 @@ import User from 'App/Models/User'
 import Role from 'App/Models/Role'
 import Mail from '@ioc:Adonis/Addons/Mail'
 import Env from '@ioc:Adonis/Core/Env'
+import CreateUserValidator from 'App/Validators/UserValidator'
 
 export default class AuthController {
 
   // * POST
   public async register({ request, response }: HttpContextContract) {
     try {
-      const validationSchema = schema.create({
-        email: schema.string({}, [
-          rules.email(),
-          rules.unique({ table: 'users', column: 'email' }),
-        ]),
-        password: schema.string({}, [rules.minLength(8),]),
-        nickname: schema.string({}, [rules.unique({ table: 'users', column: 'nickname' }),]),
-        name: schema.string({}, [rules.regex(/^[a-zA-Z\s]+$/),]),
-        lastname: schema.string({}, [rules.regex(/^[a-zA-Z\s]+$/),]),
+      const validator = new CreateUserValidator()
+      
+      const validatedData = await request.validate({
+        schema: validator.schema,
+        messages: validator.messages,
       })
 
-      const validatedData = await request.validate({
-        schema: validationSchema,
-      })
       const role = await Role.findByOrFail('slug', 'common')
       const verificationCode = this.generateVerificationCode();
       
@@ -55,10 +49,20 @@ export default class AuthController {
         data: {user}
       })
     } catch (error) {
+      if (error.messages) {
+        return response.status(400).json({
+          type: 'Validation Error',
+          title: 'Validation failed',
+          message: 'There were validation errors.',
+          error: error.messages
+        })
+      }
+
       return response.status(400).json({
         type: 'Error',
-        title: 'Failed at register user',
-        message: error.message
+        title: 'Failed to register user',
+        message: error.message,
+        error: error.stack
       })
     }
   }
