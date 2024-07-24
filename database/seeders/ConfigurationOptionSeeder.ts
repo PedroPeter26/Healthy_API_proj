@@ -8,7 +8,8 @@ export default class extends BaseSeeder {
       { id: 2, name: 'Alarma pasos' },
       { id: 3, name: 'Meta calórica' },
       { id: 4, name: 'Alarma temperatura' },
-      { id: 5, name: 'Alarma bpm' }
+      { id: 5, name: 'Alarma bpm' },
+      { id: 6, name: 'Selección pantalla' }
     ])
   }
 }
