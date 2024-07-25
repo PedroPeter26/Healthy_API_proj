@@ -3,6 +3,7 @@ import Dispositive from 'App/Models/Dispositive'
 import MongoService from 'App/Services/MongoService'
 import { CreateDispositiveValidator, UpdateDispositiveValidator } from 'App/Validators/DispositiveValidator'
 import Sensor from 'App/Models/Sensor'
+import SensorType from 'App/Models/SensorType'
 
 export default class DispositivesController {
   public async index({ response }: HttpContextContract) {
@@ -48,6 +49,18 @@ export default class DispositivesController {
 
     await dispositive.save()
 
+    // Crear documento en MongoDB
+    const dispositiveType = await dispositive.related('dispositiveType').query().firstOrFail()
+    const mongoDocument = {
+      DispositiveID: dispositive.id,
+      name: dispositive.name,
+      type: dispositiveType.name,
+      userID: dispositive.userId,
+      Sensors: []
+    }
+
+    await MongoService.insertOneDevice('Dispositives', mongoDocument)
+
     await this.handleSensorsCreation(dispositive.id, dispositive.dispositiveTypeId,
       this.createSensors)
 
@@ -70,6 +83,24 @@ export default class DispositivesController {
       sensor.active = true
 
       await sensor.save()
+
+      // Documento del sensor para MongoDB
+      const sensorType = await SensorType.query().where('id', sensorTypeId).firstOrFail()
+      const sensorDocument = {
+        sensorID: sensor.id,
+        sensorType: sensorType.name,
+        unit: sensorType.unit,
+        data: []
+      }
+
+      const result = MongoService.updateOneSensor('Dispositives',
+        { DispositiveID: dispositiveId },
+        { $push: {Sensors: sensorDocument} }
+      )
+
+      if(!result) {
+        console.log('Sensor not added to MongoDB.')
+      }
     }
   }
 

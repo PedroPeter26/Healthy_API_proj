@@ -101,7 +101,11 @@ class MongoService extends EventEmitter {
       const collection = await this.getCollection(collectionName)
       return await collection.updateOne(query, update, options)
     }
-  
+
+    public async insertOneDevice(collectionName: string, document: any) {
+      const collection = await this.getCollection(collectionName)
+      return await collection.insertOne(document)
+    }
 
     // * General purpose Aggregation @Func
 
