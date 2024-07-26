@@ -4,8 +4,18 @@ import MongoService from 'App/Services/MongoService'
 import { CreateDispositiveValidator, UpdateDispositiveValidator } from 'App/Validators/DispositiveValidator'
 import Sensor from 'App/Models/Sensor'
 import SensorType from 'App/Models/SensorType'
+import DispositiveType from 'App/Models/DispositiveType'
 
 export default class DispositivesController {
+  public async types({ response }: HttpContextContract) {
+    try {
+      const types = await DispositiveType.all()
+      return response.status(200).json(types)
+    } catch (error) {
+      return response.status(500).json({ message: 'Unable to fetch types' })
+    }
+  }
+
   public async index({ response }: HttpContextContract) {
     try {
       const dispositives = await Dispositive.all()
