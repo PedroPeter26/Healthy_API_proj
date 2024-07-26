@@ -24,6 +24,7 @@ import './routes/UsersRoutes'
 import './routes/SensorsRoutes'
 import './routes/DispositivesRoutes'
 import './routes/EdamamRoutes'
+import './routes/UserConfigurationsRoutes'
 
 Route.get('/', async () => {
   return { hello: 'world' }

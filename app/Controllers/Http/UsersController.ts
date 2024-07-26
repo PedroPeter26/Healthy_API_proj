@@ -62,7 +62,7 @@ export default class UsersController {
       user.nickname = nickname ?? user.nickname
       
       if (password) {
-        user.password = await Hash.make(password)
+        user.password = password
       }
 
       await user.save()
