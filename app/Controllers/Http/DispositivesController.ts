@@ -26,24 +26,39 @@ export default class DispositivesController {
   }
 
   public async show({ auth, response }: HttpContextContract) {
-    const user = auth.user
+    const user = auth.user;
     if (!user) {
-      return response.status(401).json({ message: 'You are not logged in' })
+        return response.status(401).json({ message: 'You are not logged in' });
     }
 
     try {
-      const dispositives = await MongoService.findMany('Dispositives', { userID: user.id })
+        const dispositives = await MongoService.findMany('Dispositives', { userID: user.id });
 
-      if (!dispositives.length) {
-        return response.status(404).json({ message: 'No dispositives found for the user' })
-      }
+        if (!dispositives.length) {
+            return response.status(404).json({ message: 'No dispositives found for the user' });
+        }
 
-      return response.status(200).json(dispositives)
+        for (const dispositive of dispositives) {
+            for (const sensor of dispositive.Sensors) {
+                const lastData = await MongoService.getSensorLastData(dispositive.DispositiveID, sensor.sensorID);
+                
+                if (lastData.length > 0) {
+                    sensor.data = lastData.map(item => ({
+                        value: item.value,
+                        timestamp: item.timestamp,
+                    }));
+                } else {
+                    sensor.data = [];
+                }
+            }
+        }
+
+        return response.status(200).json(dispositives);
     } catch (error) {
-      console.error(error)
-      return response.status(500).json({ message: 'Unable to fetch dispositives for the user' })
+        console.error(error);
+        return response.status(500).json({ message: 'Unable to fetch dispositives for the user' });
     }
-  }
+}
 
   public async create({ request, auth, response }: HttpContextContract) {
     const user = auth.user
