@@ -85,9 +85,26 @@ class MongoService extends EventEmitter {
     }
 
     public async deleteDispositive(dispositiveID: number) {
-        const collection = await this.getCollection('Dispositives')
-        return await collection.deleteOne({ 'DispositiveID': dispositiveID })
-    }
+      try {
+          const collection = await this.getCollection('Dispositives');
+          const idToDelete = typeof dispositiveID === 'number' ? dispositiveID : parseInt(dispositiveID as unknown as string, 10);
+          const document = await collection.findOne({ 'DispositiveID': idToDelete });
+  
+          if (!document) {
+              throw new Error(`Document with DispositiveID ${dispositiveID} not found`);
+          }
+          const result = await collection.deleteOne({ 'DispositiveID': idToDelete });
+  
+          if (result.deletedCount === 0) {
+              throw new Error(`Failed to delete document with DispositiveID ${dispositiveID}`);
+          }
+  
+          return result;
+      } catch (error) {
+          console.error('Error deleting document from MongoDB:', error.message);
+          throw new Error('Error deleting document from MongoDB');
+      }
+  }
 
     public async removeSensor(dispositiveID: number, sensorID: number) {
         const collection = await this.getCollection('Dispositives')

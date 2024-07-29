@@ -28,37 +28,37 @@ export default class DispositivesController {
   public async show({ auth, response }: HttpContextContract) {
     const user = auth.user;
     if (!user) {
-        return response.status(401).json({ message: 'You are not logged in' });
+      return response.status(401).json({ message: 'You are not logged in' });
     }
 
     try {
-        const dispositives = await MongoService.findMany('Dispositives', { userID: user.id });
+      const dispositives = await MongoService.findMany('Dispositives', { userID: user.id });
 
-        if (!dispositives.length) {
-            return response.status(404).json({ message: 'No dispositives found for the user' });
+      if (!dispositives.length) {
+        return response.status(404).json({ message: 'No dispositives found for the user' });
+      }
+
+      for (const dispositive of dispositives) {
+        for (const sensor of dispositive.Sensors) {
+          const lastData = await MongoService.getSensorLastData(dispositive.DispositiveID, sensor.sensorID);
+
+          if (lastData.length > 0) {
+            sensor.data = lastData.map(item => ({
+              value: item.value,
+              timestamp: item.timestamp,
+            }));
+          } else {
+            sensor.data = [];
+          }
         }
+      }
 
-        for (const dispositive of dispositives) {
-            for (const sensor of dispositive.Sensors) {
-                const lastData = await MongoService.getSensorLastData(dispositive.DispositiveID, sensor.sensorID);
-                
-                if (lastData.length > 0) {
-                    sensor.data = lastData.map(item => ({
-                        value: item.value,
-                        timestamp: item.timestamp,
-                    }));
-                } else {
-                    sensor.data = [];
-                }
-            }
-        }
-
-        return response.status(200).json(dispositives);
+      return response.status(200).json(dispositives);
     } catch (error) {
-        console.error(error);
-        return response.status(500).json({ message: 'Unable to fetch dispositives for the user' });
+      console.error(error);
+      return response.status(500).json({ message: 'Unable to fetch dispositives for the user' });
     }
-}
+  }
 
   public async create({ request, auth, response }: HttpContextContract) {
     const user = auth.user
@@ -126,10 +126,10 @@ export default class DispositivesController {
 
       const result = MongoService.updateOneSensor('Dispositives',
         { DispositiveID: dispositiveId },
-        { $push: {Sensors: sensorDocument} }
+        { $push: { Sensors: sensorDocument } }
       )
 
-      if(!result) {
+      if (!result) {
         console.log('Sensor not added to MongoDB.')
       }
     }
@@ -146,16 +146,16 @@ export default class DispositivesController {
     if (!user) {
       return response.status(401).json({ message: 'You are not logged in' })
     }
-  
+
     const validatedData = await request.validate(UpdateDispositiveValidator)
     const { id } = validatedData
-  
+
     try {
       const dispositive = await Dispositive.query().where('id', id).where('user_id', user.id).firstOrFail()
-      
+
       dispositive.name = validatedData.name ?? dispositive.name
       dispositive.dispositiveTypeId = validatedData.dispositiveTypeId ?? dispositive.dispositiveTypeId
-  
+
       await dispositive.save()
       return response.status(200).json(dispositive)
     } catch (error) {
@@ -164,39 +164,45 @@ export default class DispositivesController {
   }
 
   public async destroy({ request, auth, response }: HttpContextContract) {
-    const user = auth.user
+    const user = auth.user;
     if (!user) {
-      return response.status(401).json({ message: 'You are not logged in' })
+      return response.status(401).json({ message: 'You are not logged in' });
     }
 
-    const { id } = request.only(['id'])
+    const { id } = request.only(['id']);
 
     try {
-      const dispositive = await Dispositive.query().where('id', id).where('user_id', user.id).firstOrFail()
-      await dispositive.delete()
+      const dispositive = await Dispositive.query().where('id', id).where('user_id', user.id).first();
 
-      try {
-        await this.deleteFromMongo(id)
-      } catch (mongoError) {
-        console.error(mongoError.message)
+      if (!dispositive) {
+        return response.status(404).json({ message: 'Dispositive not found or you do not have permission to delete this dispositive' });
       }
+      try {
+        await this.deleteFromMongo(id);
+      } catch (mongoError) {
+        console.error('MongoDB deletion error:', mongoError.message);
+        return response.status(500).json({ message: 'Error deleting document from MongoDB' });
+      }
+      await dispositive.delete();
 
-      return response.status(200).json({ message: 'Dispositive deleted successfully' })
+      return response.status(200).json({ message: 'Dispositive deleted successfully' });
     } catch (error) {
-      return response.status(404).json({ message: 'Dispositive not found or you do not have permission to delete this dispositive' })
+      console.error('Error deleting dispositive:', error);
+      return response.status(500).json({ message: 'Internal server error' });
     }
   }
 
   // * @Func auxiliar para borrar dispositivo en MongoDB
   private async deleteFromMongo(dispositiveID: number) {
     try {
-      const result = await MongoService.deleteDispositive(dispositiveID)
+      const result = await MongoService.deleteDispositive(dispositiveID);
       if (result.deletedCount === 0) {
-        throw new Error('Document not found')
+        throw new Error(`Document with DispositiveID ${dispositiveID} not found`);
       }
     } catch (error) {
-      throw new Error('Error deleting document from MongoDB')
+      console.error('MongoDB deletion error:', error);
+      throw new Error(`Error deleting document from MongoDB: ${error.message}`);
     }
   }
-  
+
 }
