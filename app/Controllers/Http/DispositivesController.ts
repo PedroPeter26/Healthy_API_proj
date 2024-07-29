@@ -32,9 +32,15 @@ export default class DispositivesController {
     }
 
     try {
-      const dispositives = await Dispositive.query().where('user_id', user.id)
+      const dispositives = await MongoService.findMany('Dispositives', { userID: user.id })
+
+      if (!dispositives.length) {
+        return response.status(404).json({ message: 'No dispositives found for the user' })
+      }
+
       return response.status(200).json(dispositives)
     } catch (error) {
+      console.error(error)
       return response.status(500).json({ message: 'Unable to fetch dispositives for the user' })
     }
   }
