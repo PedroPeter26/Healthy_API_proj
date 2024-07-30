@@ -5,9 +5,9 @@ import SensorType from 'App/Models/SensorType'
 import { schema, rules } from '@ioc:Adonis/Core/Validator'
 
 export default class SensorsController {
-  public async index({}: HttpContextContract) {}
+  public async index({ }: HttpContextContract) { }
 
-  public async show({}: HttpContextContract) {}
+  public async show({ }: HttpContextContract) { }
 
   // * POST /api/sensors/store
   public async store({ request, response }: HttpContextContract) {
@@ -32,7 +32,7 @@ export default class SensorsController {
       await sensor.save()
 
       const sensorType = await SensorType.query().where('id', payload.sensorTypeId).firstOrFail()
-      
+
       // Documento para el sensor en MongoDB
       const sensorDocument = {
         sensorID: sensor.id,
@@ -98,7 +98,7 @@ export default class SensorsController {
     }
   }
 
-  public async update({}: HttpContextContract) {}
+  public async update({ }: HttpContextContract) { }
 
   // ! DELETE /sensors/delete-dispositive
   // ? Remove
@@ -134,23 +134,26 @@ export default class SensorsController {
   // * POST /sensors/sensor-list
   public async getSensorsList({ request, response }: HttpContextContract) {
     try {
-      const { dispositiveID } = request.only(['dispositiveID'])
+      const { dispositiveID } = request.only(['dispositiveID']);
+      const dispositiveIDNumber = Number(dispositiveID);
+      if (isNaN(dispositiveIDNumber)) {
+        return response.status(400).json({ message: 'Invalid DispositiveID' });
+      }
+      const sensorDoc = await MongoService.findOne('Dispositives', { DispositiveID: dispositiveIDNumber });
 
-      // Fetch sensors and their types
-      const sensors = await Sensor.query()
-        .where('dispositive_id', dispositiveID)
-        .preload('sensorType')
+      if (!sensorDoc) {
+        return response.status(404).json({ message: 'Dispositive not found' });
+      }
 
-      // Map to the required format
-      const result = sensors.map(sensor => ({
-        id: sensor.id,
-        type: sensor.sensorType.name
-      }))
+      const sensorTypes = sensorDoc.Sensors.map((sensor: any) => ({
+        id: sensor.sensorID,
+        type: sensor.sensorType
+      }));
 
-      return response.json(result)
+      return response.json(sensorTypes);
     } catch (error) {
-      console.error('Error fetching sensor types:', error)
-      return response.status(500).json({ message: 'Internal Server Error' })
+      console.error('Error fetching sensor types:', error);
+      return response.status(500).json({ message: 'Internal Server Error' });
     }
   }
 
