@@ -3,11 +3,34 @@ import MongoService from 'App/Services/MongoService'
 import Sensor from 'App/Models/Sensor'
 import SensorType from 'App/Models/SensorType'
 import { schema, rules } from '@ioc:Adonis/Core/Validator'
+import DispositiveType from 'App/Models/DispositiveType'
 
 export default class SensorsController {
   public async index({ }: HttpContextContract) { }
 
   public async show({ }: HttpContextContract) { }
+
+  public async getSensorTypes({ params, response }: HttpContextContract) {
+    const dispositiveTypeId = params.id
+  
+    const dispositiveType = await DispositiveType.find(dispositiveTypeId)
+    if (!dispositiveType) {
+      return response.status(404).json({ message: 'Dispositive type not found' })
+    }
+
+    let sensorTypeIds: number[] = []
+    if (dispositiveTypeId == 1) {
+      sensorTypeIds = [1, 2, 3, 4, 5, 6]
+    } else if (dispositiveTypeId == 2) {
+      sensorTypeIds = [7, 8]
+    } else {
+      sensorTypeIds = []
+    }
+    const sensorTypes = await SensorType.query().whereIn('id', sensorTypeIds)
+  
+    return response.status(200).json(sensorTypes)
+  }
+  
 
   // * POST /api/sensors/store
   public async store({ request, response }: HttpContextContract) {
