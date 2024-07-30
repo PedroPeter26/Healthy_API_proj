@@ -10,9 +10,6 @@ export default class ConfigurationOption extends BaseModel {
   @column()
   public name: string
 
-  @column()
-  public acronym: string
-
   @column.dateTime({ autoCreate: true })
   public createdAt: DateTime
 
