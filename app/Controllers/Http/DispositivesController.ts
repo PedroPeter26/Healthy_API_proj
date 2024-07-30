@@ -143,27 +143,36 @@ export default class DispositivesController {
   }
 
   public async update({ request, auth, response }: HttpContextContract) {
-    const user = auth.user
+    const user = auth.user;
     if (!user) {
-      return response.status(401).json({ message: 'You are not logged in' })
+      return response.status(401).json({ message: 'You are not logged in' });
     }
-
-    const validatedData = await request.validate(UpdateDispositiveValidator)
-    const { id } = validatedData
-
+  
+    const validatedData = await request.validate(UpdateDispositiveValidator);
+    const { id } = validatedData;
+  
     try {
-      const dispositive = await Dispositive.query().where('id', id).where('user_id', user.id).firstOrFail()
-
-      dispositive.name = validatedData.name ?? dispositive.name
-      dispositive.dispositiveTypeId = validatedData.dispositiveTypeId ?? dispositive.dispositiveTypeId
-
-      await dispositive.save()
-      return response.status(200).json(dispositive)
+      const dispositive = await Dispositive.query()
+        .where('id', id)
+        .where('user_id', user.id)
+        .firstOrFail();
+  
+      dispositive.name = validatedData.name ?? dispositive.name;
+      dispositive.dispositiveTypeId = validatedData.dispositiveTypeId ?? dispositive.dispositiveTypeId;
+  
+      await dispositive.save();
+  
+      await MongoService.updateOne('Dispositives', { DispositiveID: id }, {
+        name: validatedData.name ?? dispositive.name,
+        dispositiveTypeId: validatedData.dispositiveTypeId ?? dispositive.dispositiveTypeId
+      });
+  
+      return response.status(200).json(dispositive);
     } catch (error) {
-      return response.status(404).json({ message: 'Dispositive not found or you do not have permission to update this dispositive' })
+      return response.status(404).json({ message: 'Dispositive not found or you do not have permission to update this dispositive' });
     }
   }
-
+  
   public async destroy({ request, auth, response }: HttpContextContract) {
     const user = auth.user;
     if (!user) {
