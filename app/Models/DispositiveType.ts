@@ -10,6 +10,9 @@ export default class DispositiveType extends BaseModel {
   @column()
   public name: string
 
+  @column()
+  public acronym: string
+
   @hasMany(() => Dispositive)
   public dispositives: HasMany<typeof Dispositive>
 

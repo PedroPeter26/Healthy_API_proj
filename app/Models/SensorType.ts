@@ -14,6 +14,9 @@ export default class SensorType extends BaseModel {
   @column()
   public unit: string
 
+  @column()
+  public acronym: string
+
   @hasMany(() => Sensor)
   public sensors: HasMany<typeof Sensor>
 

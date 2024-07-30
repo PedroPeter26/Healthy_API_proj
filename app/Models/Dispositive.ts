@@ -3,6 +3,7 @@ import { BaseModel, BelongsTo, belongsTo, column, HasMany, hasMany } from '@ioc:
 import DispositiveType from './DispositiveType'
 import User from './User'
 import Sensor from './Sensor'
+import UserConfiguration from './UserConfiguration'
 
 export default class Dispositive extends BaseModel {
   public static table = 'dispositives'
@@ -27,6 +28,9 @@ export default class Dispositive extends BaseModel {
 
   @hasMany(() => Sensor)
   public sensors: HasMany<typeof Sensor>
+
+  @hasMany(() => UserConfiguration)
+  public userConfigurations: HasMany<typeof UserConfiguration>
 
   @column.dateTime({ autoCreate: true })
   public createdAt: DateTime
