@@ -230,4 +230,23 @@ export default class AuthController {
   }
 
   //public async templateEndPoint({}: HttpContextContract) {}
+
+  public async validateToken({ auth, response }: HttpContextContract) {
+    try {
+      await auth.use('api').authenticate()
+
+      return response.status(200).json({
+        type: 'Success',
+        title: 'Token valid',
+        message: 'Token is valid'
+      })
+    } catch (error) {
+      return response.status(401).json({
+        type: 'Failure',
+        title: 'Invalid token',
+        message: 'Token is not valid'
+      })
+    }
+  }
+
 }
