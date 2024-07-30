@@ -120,11 +120,24 @@ export default class SensorsController {
   public async destroy({ request, response }: HttpContextContract) {
     try {
       const { dispositiveID, sensorID } = request.only(['dispositiveID', 'sensorID'])
-      const result = await MongoService.removeSensor(dispositiveID, sensorID)
-      if (result.modifiedCount === 0) {
-        return response.status(404).json({ message: 'Sensor not found or not removed' })
+
+      const mongoResult = await MongoService.removeSensor(dispositiveID, sensorID)
+      if (mongoResult.modifiedCount === 0) {
+        return response.status(404).json({ message: 'Sensor not found or not removed in MongoDB' })
       }
-      return response.json({ message: 'Sensor removed successfully' })
+
+      const sensor = await Sensor.query()
+        .where('dispositiveId', dispositiveID)
+        .andWhere('id', sensorID)
+        .first()
+
+      if (!sensor) {
+        return response.status(404).json({ message: 'Sensor not found in relational database' })
+      }
+
+      await sensor.delete()
+
+      return response.json({ message: 'Sensor removed successfully from both databases' })
     } catch (error) {
       console.error('Error removing sensor:', error)
       return response.status(500).json({ message: 'Internal Server Error' })
