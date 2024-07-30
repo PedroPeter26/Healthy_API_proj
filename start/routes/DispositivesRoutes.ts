@@ -8,4 +8,5 @@ Route.group(() => {
   Route.post('/create', 'DispositivesController.create')
   Route.put('/update', 'DispositivesController.update')
   Route.delete('/destroy', 'DispositivesController.destroy')
+  Route.put('/sensor-disp', 'DispositivesController.addSensorsToDispositive')
 }).prefix('api/dispositives').middleware('auth')

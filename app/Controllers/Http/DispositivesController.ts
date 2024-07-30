@@ -1,10 +1,11 @@
 import { HttpContextContract } from '@ioc:Adonis/Core/HttpContext'
 import Dispositive from 'App/Models/Dispositive'
 import MongoService from 'App/Services/MongoService'
-import { CreateDispositiveValidator, UpdateDispositiveValidator } from 'App/Validators/DispositiveValidator'
+import AddSensorsValidator, { CreateDispositiveValidator, UpdateDispositiveValidator } from 'App/Validators/DispositiveValidator'
 import Sensor from 'App/Models/Sensor'
 import SensorType from 'App/Models/SensorType'
 import DispositiveType from 'App/Models/DispositiveType'
+AddSensorsValidator
 
 export default class DispositivesController {
   public async types({ response }: HttpContextContract) {
@@ -205,4 +206,53 @@ export default class DispositivesController {
     }
   }
 
+  public async addSensorsToDispositive({ request, auth, response }: HttpContextContract) {
+    const user = auth.user
+    if (!user) {
+      return response.status(401).json({ message: 'You are not logged in' })
+    }
+  
+    const validatedData = await request.validate(AddSensorsValidator)
+    const dispositiveId = validatedData.dispositiveId
+  
+    const dispositive = await Dispositive.find(dispositiveId)
+    if (!dispositive) {
+      return response.status(404).json({ message: 'Dispositive not found' })
+    }
+  
+    if (dispositive.userId !== user.id) {
+      return response.status(403).json({ message: 'You do not have permission to add sensors to this dispositive' })
+    }
+  
+    const sensorTypeIds = validatedData.sensorTypeIds
+  
+    for (const sensorTypeId of sensorTypeIds) {
+      const sensor = new Sensor()
+      sensor.sensorTypeId = sensorTypeId
+      sensor.dispositiveId = dispositiveId
+      sensor.active = true
+  
+      await sensor.save()
+  
+      const sensorType = await SensorType.query().where('id', sensorTypeId).firstOrFail()
+      const sensorDocument = {
+        sensorID: sensor.id,
+        sensorType: sensorType.name,
+        unit: sensorType.unit,
+        data: []
+      }
+  
+      const result = await MongoService.updateOneSensor(
+        'Dispositives',
+        { DispositiveID: dispositiveId },
+        { $push: { Sensors: sensorDocument } }
+      )
+  
+      if (!result) {
+        console.log('Sensor not added to MongoDB.')
+      }
+    }
+  
+    return response.status(201).json({ message: 'Sensors added successfully' })
+  }
 }

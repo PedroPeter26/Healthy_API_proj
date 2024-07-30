@@ -41,3 +41,17 @@ export class UpdateDispositiveValidator {
     'dispositiveTypeId.unsigned': 'The dispositive type must be a positive number'
   }
 }
+
+// Validador para agregar sensor a un dispositivo
+export default class AddSensorsValidator {
+  public schema = schema.create({
+    dispositiveId: schema.number(),
+    sensorTypeIds: schema.array().members(schema.number())
+  })
+
+  public messages = {
+    'dispositiveId.required': 'Dispositive ID is required',
+    'sensorTypeIds.required': 'Sensor Type IDs are required',
+    'sensorTypeIds.array': 'Sensor Type IDs must be an array of numbers',
+  }
+}
