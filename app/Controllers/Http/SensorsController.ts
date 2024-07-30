@@ -11,26 +11,28 @@ export default class SensorsController {
   public async show({ }: HttpContextContract) { }
 
   public async getSensorTypes({ params, response }: HttpContextContract) {
-    const dispositiveTypeId = params.id
+    const dispositiveTypeName = params.type
   
-    const dispositiveType = await DispositiveType.find(dispositiveTypeId)
+    const dispositiveType = await DispositiveType.query().where('name', dispositiveTypeName).first()
+    
     if (!dispositiveType) {
-      return response.status(404).json({ message: 'Dispositive type not found' })
+        return response.status(404).json({ message: 'Dispositive type not found' })
     }
 
     let sensorTypeIds: number[] = []
-    if (dispositiveTypeId == 1) {
-      sensorTypeIds = [1, 2, 3, 4, 5, 6]
-    } else if (dispositiveTypeId == 2) {
-      sensorTypeIds = [7, 8]
+    
+    if (dispositiveType.id == 1) {
+        sensorTypeIds = [1, 2, 3, 4, 5, 6]
+    } else if (dispositiveType.id == 2) {
+        sensorTypeIds = [7, 8]
     } else {
-      sensorTypeIds = []
+        sensorTypeIds = []
     }
+    
     const sensorTypes = await SensorType.query().whereIn('id', sensorTypeIds)
   
     return response.status(200).json(sensorTypes)
-  }
-  
+}
 
   // * POST /api/sensors/store
   public async store({ request, response }: HttpContextContract) {
