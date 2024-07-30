@@ -6,6 +6,8 @@ import Sensor from 'App/Models/Sensor'
 import SensorType from 'App/Models/SensorType'
 import DispositiveType from 'App/Models/DispositiveType'
 AddSensorsValidator
+import UserConfiguration from 'App/Models/UserConfiguration'
+import ConfigurationOption from 'App/Models/ConfigurationOption'
 
 export default class DispositivesController {
   public async types({ response }: HttpContextContract) {
@@ -93,8 +95,20 @@ export default class DispositivesController {
 
     await MongoService.insertOneDevice('Dispositives', mongoDocument)
 
-    await this.handleSensorsCreation(dispositive.id, dispositive.dispositiveTypeId,
-      this.createSensors)
+    // Crear documento en MongoDB para la colección 'Configurations'
+    const configMongoDocument = {
+      id: dispositive.id,
+      type: dispositiveType.acronym,
+      sensors: [],
+      configurations: []
+    }
+
+    await MongoService.insertOneDevice('Configurations', configMongoDocument)
+
+    // Crear configuraciones predeterminadas en PostgreSQL y MongoDB
+    await this.handleConfigurationsCreation(dispositive.id, dispositive.dispositiveTypeId, user.id)
+
+    await this.handleSensorsCreation(dispositive.id, dispositive.dispositiveTypeId, this.createSensors)
 
     return response.status(201).json(dispositive)
   }
@@ -122,10 +136,11 @@ export default class DispositivesController {
         sensorID: sensor.id,
         sensorType: sensorType.name,
         unit: sensorType.unit,
+        active: sensor.active,
         data: []
       }
 
-      const result = MongoService.updateOneSensor('Dispositives',
+      const result = await MongoService.updateOneSensor('Dispositives',
         { DispositiveID: dispositiveId },
         { $push: { Sensors: sensorDocument } }
       )
@@ -133,6 +148,17 @@ export default class DispositivesController {
       if (!result) {
         console.log('Sensor not added to MongoDB.')
       }
+
+      // Añadir sensor al documento de Configurations
+      const sensorConfigDocument = {
+        id: sensor.id,
+        type: sensorType.acronym
+      }
+
+      await MongoService.updateOneSensor('Configurations',
+        { id: dispositiveId },
+        { $push: { sensors: sensorConfigDocument } }
+      )
     }
   }
 
@@ -140,6 +166,47 @@ export default class DispositivesController {
   private async handleSensorsCreation(dispositiveId: number, dispositiveTypeId: number,
     callback: (dispositiveId: number, dispositiveTypeId: number) => Promise<void>) {
     await callback(dispositiveId, dispositiveTypeId)
+  }
+
+  // * @Func auxiliar a @Create
+  private async handleConfigurationsCreation(dispositiveId: number, dispositiveTypeId: number, userId: number) {
+    const configurationDefaults = {
+      1: [
+        { configurationOptionsId: 1, data: '100.0' },
+        { configurationOptionsId: 2, data: '500' },
+        { configurationOptionsId: 3, data: '4' },
+        { configurationOptionsId: 4, data: '100' }
+      ]
+    }
+
+    const configurations = configurationDefaults[dispositiveTypeId] || []
+
+    for (const config of configurations) {
+      const userConfiguration = new UserConfiguration()
+      userConfiguration.dispositiveId = dispositiveId
+      userConfiguration.userId = userId
+      userConfiguration.configurationOptionsId = config.configurationOptionsId
+      userConfiguration.data = config.data
+
+      await userConfiguration.save()
+
+      const configurationOption = await ConfigurationOption.find(config.configurationOptionsId)
+      const configurationDocument = {
+        type: configurationOption?.acronym,
+        value: config.data
+      }
+
+      const result = await MongoService.updateOneSensor('Configurations',
+        { id: dispositiveId },
+        { $push: { configurations: configurationDocument } }
+      )
+      console.log('Adding configuration to MongoDB:', configurationDocument)
+      console.log('Result of MongoDB update:', result)
+
+      if (!result) {
+        console.log('Configuration not added to MongoDB.')
+      }
+    }
   }
 
   public async update({ request, auth, response }: HttpContextContract) {

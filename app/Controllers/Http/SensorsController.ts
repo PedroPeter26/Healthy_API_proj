@@ -63,6 +63,7 @@ export default class SensorsController {
         sensorID: sensor.id,
         sensorType: sensorType.name,
         unit: sensorType.unit,
+        active: sensor.active,
         data: []
       }
 

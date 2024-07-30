@@ -118,10 +118,14 @@ class MongoService extends EventEmitter {
     );
   }
 
-  public async updateOneSensor(collectionName: string, query: any, update: any, options: any = {}) {
-    const collection = await this.getCollection(collectionName)
-    return await collection.updateOne(query, update, options)
-  }
+    public async updateOneSensor(collectionName: string, query: any, update: any, options: any = {}) {
+      const collection = await this.getCollection(collectionName)
+      const result = await collection.updateOne(query, update, options)
+      console.log(`Updating collection ${collectionName} with query:`, query)
+      console.log(`Update operation:`, update)
+      console.log(`Result:`, result)
+      return result
+    }
 
   public async insertOneDevice(collectionName: string, document: any) {
     const collection = await this.getCollection(collectionName)
