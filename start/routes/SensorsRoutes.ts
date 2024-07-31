@@ -9,4 +9,5 @@ Route.group(() => {
   //Route.delete('/delete-dispositive', 'SensorsController.delete') //?delete
   Route.delete('/remove-sensor', 'SensorsController.destroy')
   Route.post('/sensor-list', 'SensorsController.getSensorsList')
+  Route.post('/report-by-sensor', 'SensorsController.reportBySensor')
 }).prefix('/api/sensors')

@@ -148,3 +148,108 @@
    *       500:
    *         description: Internal Server Error
    */
+
+
+    /**
+ * @swagger
+ * /api/sensors/report-by-sensor:
+ *   post:
+ *     security:
+ *      - bearerAuth: []
+ *     tags:
+ *       - Sensors
+ *     summary: Generar reporte por sensor
+ *     description: Genera un reporte de datos para un sensor específico dentro de un rango de fechas.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               dateBegin:
+ *                 type: string
+ *                 format: date-time
+ *                 example: '2024-07-14T00:00:00Z'
+ *                 description: Fecha de inicio del rango de fechas.
+ *               dateFinish:
+ *                 type: string
+ *                 format: date-time
+ *                 example: '2024-07-31T23:59:59Z'
+ *                 description: Fecha de finalización del rango de fechas.
+ *               sensorID:
+ *                 type: number
+ *                 example: 11
+ *                 description: ID del sensor.
+ *               dispositiveID:
+ *                 type: number
+ *                 example: 3
+ *                 description: ID del dispositivo.
+ *     responses:
+ *       200:
+ *         description: Reporte generado exitosamente
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                   DispositiveID:
+ *                     type: number
+ *                     example: 4
+ *                   sensorID:
+ *                     type: number
+ *                     example: 1
+ *                   name:
+ *                     type: string
+ *                     example: 'Sensor Name'
+ *                   type:
+ *                     type: string
+ *                     example: 'Sensor Type'
+ *                   userID:
+ *                     type: number
+ *                     example: 1
+ *                   data:
+ *                     type: array
+ *                     items:
+ *                       type: object
+ *                       properties:
+ *                         timestamp:
+ *                           type: string
+ *                           format: date-time
+ *                           example: '2023-07-15T10:00:00Z'
+ *                         value:
+ *                           type: number
+ *                           example: 123.45
+ *       400:
+ *         description: Error de validación
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: 'Invalid DispositiveID'
+ *       404:
+ *         description: No se encontraron datos para los parámetros dados
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: 'No data found for the given parameters'
+ *       500:
+ *         description: Error interno del servidor
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: 'Internal Server Error'
+ */

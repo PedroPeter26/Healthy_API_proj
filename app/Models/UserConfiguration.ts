@@ -13,19 +13,25 @@ export default class UserConfiguration extends BaseModel {
   @column()
   public userId: number
 
-  @belongsTo(() => User)
+  @belongsTo(() => User, {
+    foreignKey: 'userId',
+  })
   public user: BelongsTo<typeof User>
 
   @column()
   public dispositiveId: number
 
-  @belongsTo(() => Dispositive)
+  @belongsTo(() => Dispositive, {
+    foreignKey: 'dispositiveId',
+  })
   public dispositive: BelongsTo<typeof Dispositive>
 
   @column()
   public configurationOptionsId: number
 
-  @belongsTo(() => ConfigurationOption)
+  @belongsTo(() => ConfigurationOption, {
+    foreignKey: 'configurationOptionsId',
+  })
   public configurationOption: BelongsTo<typeof ConfigurationOption>
 
   @column()
@@ -37,6 +43,6 @@ export default class UserConfiguration extends BaseModel {
   @column.dateTime({ autoCreate: true, autoUpdate: true })
   public updatedAt: DateTime
 
-  @column.dateTime({})
+  @column.dateTime()
   public deletedAt: DateTime | null
 }
