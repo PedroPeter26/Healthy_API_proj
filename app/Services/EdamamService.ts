@@ -2,7 +2,7 @@ import axios from 'axios';
 import Env from '@ioc:Adonis/Core/Env';
 
 export default class EdamamService {
-  public static async getAllFoods() {
+  public static async getAllFoods() { // ! ELIMINAR
     try {
       const baseURL = 'https://api.edamam.com/api/food-database/v2/parser';
       const params = {

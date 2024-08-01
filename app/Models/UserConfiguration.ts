@@ -2,6 +2,7 @@ import { DateTime } from 'luxon'
 import { BaseModel, BelongsTo, belongsTo, column } from '@ioc:Adonis/Lucid/Orm'
 import User from './User'
 import ConfigurationOption from './ConfigurationOption'
+import Dispositive from './Dispositive'
 
 export default class UserConfiguration extends BaseModel {
   public static table = 'user_configurations'
@@ -12,13 +13,25 @@ export default class UserConfiguration extends BaseModel {
   @column()
   public userId: number
 
-  @belongsTo(() => User)
+  @belongsTo(() => User, {
+    foreignKey: 'userId',
+  })
   public user: BelongsTo<typeof User>
 
   @column()
-  public configurationOptionId: number
+  public dispositiveId: number
 
-  @belongsTo(() => ConfigurationOption)
+  @belongsTo(() => Dispositive, {
+    foreignKey: 'dispositiveId',
+  })
+  public dispositive: BelongsTo<typeof Dispositive>
+
+  @column()
+  public configurationOptionsId: number
+
+  @belongsTo(() => ConfigurationOption, {
+    foreignKey: 'configurationOptionsId',
+  })
   public configurationOption: BelongsTo<typeof ConfigurationOption>
 
   @column()
@@ -30,6 +43,6 @@ export default class UserConfiguration extends BaseModel {
   @column.dateTime({ autoCreate: true, autoUpdate: true })
   public updatedAt: DateTime
 
-  @column.dateTime({})
+  @column.dateTime()
   public deletedAt: DateTime | null
 }

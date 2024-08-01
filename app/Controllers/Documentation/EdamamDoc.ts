@@ -8,7 +8,7 @@
 
     /**
      * @swagger
-     * /api/foods/obtener-alimento:
+     * /api/foods/get-food:
      *   get:
      *     security:
      *      - bearerAuth: []
@@ -61,7 +61,7 @@
 
     /**
      * @swagger
-     * /api/foods/calcular-nutricion:
+     * /api/foods/nutritional-properties:
      *   post:
      *     security:
      *      - bearerAuth: []
@@ -79,8 +79,22 @@
      *               ingr:
      *                 type: array
      *                 items:
-     *                   type: string
-     *                 description: Lista de ingredientes en el formato "cantidad unidad nombre".
+     *                   type: object
+     *                   properties:
+     *                     nombre:
+     *                       type: string
+     *                       description: Nombre del ingrediente.
+     *                       example: "Chicken breast"
+     *                     peso:
+     *                       type: number
+     *                       description: Peso del ingrediente en gramos.
+     *                       example: 150
+     *                 description: Lista de ingredientes con nombre y peso.
+     *                 example:
+     *                   - nombre: "Rice"
+     *                     peso: 150
+     *                   - nombre: "Banana"
+     *                     peso: 120
      *     responses:
      *       200:
      *         description: Información nutricional calculada correctamente.

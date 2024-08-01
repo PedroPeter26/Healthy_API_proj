@@ -163,47 +163,51 @@ class MongoService extends EventEmitter {
     const agg = [
       {
         '$match': {
-          'DispositiveID': dispositiveID,
+          'DispositiveID': dispositiveID, 
           'Sensors.sensorID': sensorID
         }
       }, {
         '$unwind': '$Sensors'
       }, {
+        '$match': {
+          'Sensors.sensorID': sensorID
+        }
+      }, {
         '$unwind': '$Sensors.data'
       }, {
         '$match': {
           'Sensors.data.timestamp': {
-            '$gte': dateBegin,
+            '$gte': dateBegin, 
             '$lt': dateFinish
           }
         }
       }, {
         '$group': {
           '_id': {
-            'DispositiveID': '$DispositiveID',
+            'DispositiveID': '$DispositiveID', 
             'sensorID': '$Sensors.sensorID'
-          },
+          }, 
           'name': {
             '$first': '$name'
-          },
+          }, 
           'type': {
             '$first': '$type'
-          },
+          }, 
           'userID': {
             '$first': '$userID'
-          },
+          }, 
           'data': {
             '$push': '$Sensors.data'
           }
         }
       }, {
         '$project': {
-          '_id': 0,
-          'DispositiveID': '$_id.DispositiveID',
-          'sensorID': '$_id.sensorID',
-          'name': 1,
-          'type': 1,
-          'userID': 1,
+          '_id': 0, 
+          'DispositiveID': '$_id.DispositiveID', 
+          'sensorID': '$_id.sensorID', 
+          'name': 1, 
+          'type': 1, 
+          'userID': 1, 
           'data': 1
         }
       }

@@ -1,5 +1,5 @@
 import Route from '@ioc:Adonis/Core/Route'
 
 Route.group(() => {
-  Route.put('/:id', 'UserConfigurationsController.update')
+  Route.put('/update', 'UserConfigurationsController.update')
 }).prefix('/api/user-conf').middleware(['auth'])

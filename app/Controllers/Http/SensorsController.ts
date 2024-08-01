@@ -4,6 +4,7 @@ import Sensor from 'App/Models/Sensor'
 import SensorType from 'App/Models/SensorType'
 import { schema, rules } from '@ioc:Adonis/Core/Validator'
 import DispositiveType from 'App/Models/DispositiveType'
+import { DateTime } from 'luxon'
 
 export default class SensorsController {
   public async index({ }: HttpContextContract) { }
@@ -191,6 +192,57 @@ export default class SensorsController {
       return response.json(sensorTypes);
     } catch (error) {
       console.error('Error fetching sensor types:', error);
+      return response.status(500).json({ message: 'Internal Server Error' });
+    }
+  }
+
+  // * POST /sensors/report-by-sensor
+  public async reportBySensor({ request, response }: HttpContextContract) {
+    const reportSchema = schema.create({
+      dateBegin: schema.string({ trim: true }, [rules.required()]),
+      dateFinish: schema.string({ trim: true }, [rules.required()]),
+      sensorID: schema.number([rules.required()]),
+      dispositiveID: schema.number([rules.required()])
+    });
+  
+    try {
+      const { dateBegin, dateFinish, sensorID, dispositiveID } = await request.validate({ schema: reportSchema });
+  
+      // Función para convertir fecha en formato ISO o personalizado
+      const parseDate = (date: string) => {
+        let dt = DateTime.fromISO(date.trim());
+        if (!dt.isValid) {
+          dt = DateTime.fromFormat(date.trim(), 'yyyy-MM-dd HH:mm:ss');
+        }
+        return dt;
+      };
+  
+      const cleanedDateBegin = parseDate(dateBegin);
+      const cleanedDateFinish = parseDate(dateFinish);
+  
+      if (!cleanedDateBegin.isValid || !cleanedDateFinish.isValid) {
+        return response.status(400).json({ message: 'Invalid date format. Expected ISO or yyyy-MM-dd HH:mm:ss format' });
+      }
+  
+      // Convertir las fechas a ISO string
+      const isoDateBegin = cleanedDateBegin.toISO();
+      const isoDateFinish = cleanedDateFinish.toISO();
+  
+      console.log('Request Params:', { isoDateBegin, isoDateFinish, sensorID, dispositiveID });
+  
+      const report = await MongoService.reportBySensor(isoDateBegin, isoDateFinish, sensorID, dispositiveID);
+      
+      if (!report || report.length === 0) {
+        return response.status(404).json({ message: 'No data found for the given parameters' });
+      }
+  
+      return response.status(200).json(report);
+    } catch (error) {
+      if (error.messages) {
+        return response.status(422).json({ message: 'Validation error', details: error.messages });
+      }
+  
+      console.error('Error generating report:', error);
       return response.status(500).json({ message: 'Internal Server Error' });
     }
   }
