@@ -77,6 +77,22 @@ export default class SensorsController {
         return response.status(404).json({ message: 'Dispositive not found or sensor not added' })
       }
 
+      // Añadir sensor al documento en la colección 'Configurations' en MongoDB
+      const sensorConfigDocument = {
+        id: sensor.id,
+        type: sensorType.acronym
+      };
+
+      const configUpdateResult = await MongoService.updateOneSensor(
+        'Configurations',
+        { id: payload.dispositiveID },
+        { $push: { sensors: sensorConfigDocument } }
+      );
+
+      if (configUpdateResult.modifiedCount === 0) {
+        return response.status(404).json({ message: 'Dispositive not found or sensor not added to Configurations collection' });
+      }
+
       return response.status(201).json({
         type: 'Success',
         title: 'Sensor created!',
@@ -125,7 +141,73 @@ export default class SensorsController {
     }
   }
 
-  public async update({ }: HttpContextContract) { }
+  // * PUT /sensors/update
+  public async update({ request, response }: HttpContextContract) {
+    const updateSensorSchema = schema.create({
+      sensorID: schema.number([
+        rules.exists({ table: 'sensors', column: 'id' }),
+      ]),
+      dispositiveID: schema.number([
+        rules.exists({ table: 'dispositives', column: 'id' }),
+      ]),
+      active: schema.boolean(),
+    })
+
+    try {
+      const payload = await request.validate({ schema: updateSensorSchema })
+      const { sensorID, dispositiveID, active } = payload
+
+      const sensor = await Sensor.query()
+        .where('id', sensorID)
+        .andWhere('dispositiveId', dispositiveID)
+        .first()
+
+      if (!sensor) {
+        return response.status(404).json({ message: 'Sensor not found in relational database' })
+      }
+
+      if (sensor.active === active) {
+        return response.status(200).json({ message: `Sensor is already ${active ? 'active' : 'inactive'}` })
+      }
+
+      // Actualizar el estado del sensor en PostgreSQL
+      sensor.active = active
+      await sensor.save()
+
+      // Actualizar el estado del sensor en MongoDB
+      const result = await MongoService.updateOneSensor(
+        'Dispositives',
+        { DispositiveID: dispositiveID, 'Sensors.sensorID': sensorID },
+        { $set: { 'Sensors.$.active': active } }
+      )
+
+      if (result.modifiedCount === 0) {
+        return response.status(404).json({ message: 'Sensor not found or not updated in MongoDB' })
+      }
+
+      return response.status(200).json({
+        type: 'Success',
+        title: 'Sensor updated!',
+        message: 'Sensor status updated successfully',
+        data: sensor
+      })
+    } catch (error) {
+      if (error.messages) {
+        return response.status(422).json({
+          type: 'Error',
+          title: 'Validation error',
+          message: error.messages
+        })
+      }
+
+      console.error('Error updating sensor:', error)
+      return response.status(500).json({
+        type: 'Error',
+        title: 'Internal Server Error',
+        message: error.messages
+      })
+    }
+  }
 
   // ! DELETE /sensors/delete-dispositive
   // ? Remove
@@ -151,6 +233,11 @@ export default class SensorsController {
       const mongoResult = await MongoService.removeSensor(dispositiveID, sensorID)
       if (mongoResult.modifiedCount === 0) {
         return response.status(404).json({ message: 'Sensor not found or not removed in MongoDB' })
+      }
+
+      const configResult = await MongoService.removeSensorFromConfiguration(dispositiveID, sensorID)
+      if (configResult.modifiedCount === 0) {
+        return response.status(404).json({ message: 'Sensor not found or not removed in Configurations collection' })
       }
 
       const sensor = await Sensor.query()

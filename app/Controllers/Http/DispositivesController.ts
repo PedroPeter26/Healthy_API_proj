@@ -209,6 +209,7 @@ export default class DispositivesController {
     }
   }
 
+  // * PUT 
   public async update({ request, auth, response }: HttpContextContract) {
     const user = auth.user;
     if (!user) {
@@ -245,31 +246,49 @@ export default class DispositivesController {
     if (!user) {
       return response.status(401).json({ message: 'You are not logged in' });
     }
-
+  
     const { id } = request.only(['id']);
-
+  
     try {
       const dispositive = await Dispositive.query().where('id', id).where('user_id', user.id).first();
-
+  
       if (!dispositive) {
         return response.status(404).json({ message: 'Dispositive not found or you do not have permission to delete this dispositive' });
       }
+  
+      // Eliminar registros dependientes en PostgreSQL
+      await this.removeDependencies(id);
+  
+      // Eliminar el documento en MongoDB
       try {
         await this.deleteFromMongo(id);
+        await this.deleteConfigurationFromMongo(id);
       } catch (mongoError) {
         console.error('MongoDB deletion error:', mongoError.message);
         return response.status(500).json({ message: 'Error deleting document from MongoDB' });
       }
+  
+      // Eliminar el dispositivo en PostgreSQL
       await dispositive.delete();
-
+  
       return response.status(200).json({ message: 'Dispositive deleted successfully' });
     } catch (error) {
       console.error('Error deleting dispositive:', error);
       return response.status(500).json({ message: 'Internal server error' });
     }
   }
-
-  // * @Func auxiliar para borrar dispositivo en MongoDB
+  
+  // Eliminar dependencias en PostgreSQL
+  private async removeDependencies(dispositiveID: number) {
+    try {
+      await UserConfiguration.query().where('dispositive_id', dispositiveID).delete();
+    } catch (error) {
+      console.error('Error removing dependencies:', error.message);
+      throw new Error('Error removing dependencies from PostgreSQL');
+    }
+  }
+  
+  // Func auxiliar para borrar dispositivo en MongoDB
   private async deleteFromMongo(dispositiveID: number) {
     try {
       const result = await MongoService.deleteDispositive(dispositiveID);
@@ -281,6 +300,20 @@ export default class DispositivesController {
       throw new Error(`Error deleting document from MongoDB: ${error.message}`);
     }
   }
+  
+  // Func auxiliar para borrar configuración en MongoDB
+  private async deleteConfigurationFromMongo(dispositiveID: number) {
+    try {
+      const result = await MongoService.deleteConfiguration(dispositiveID);
+      if (result.deletedCount === 0) {
+        throw new Error(`Document with id ${dispositiveID} not found`);
+      }
+    } catch (error) {
+      console.error('MongoDB deletion error:', error);
+      throw new Error(`Error deleting document from MongoDB: ${error.message}`);
+    }
+  }
+  
 
   public async addSensorsToDispositive({ request, auth, response }: HttpContextContract) {
     const user = auth.user

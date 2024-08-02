@@ -106,6 +106,30 @@ class MongoService extends EventEmitter {
     }
   }
 
+  //* Delete doc from Configuration collection
+  public async deleteConfiguration(dispositiveID: number) {
+    try {
+      const collection = await this.getCollection('Configurations');
+      const idToDelete = typeof dispositiveID === 'number' ? dispositiveID : parseInt(dispositiveID as unknown as string, 10);
+      const document = await collection.findOne({ 'id': idToDelete });
+  
+      if (!document) {
+        throw new Error(`Document with id ${dispositiveID} not found`);
+      }
+      const result = await collection.deleteOne({ 'id': idToDelete });
+  
+      if (result.deletedCount === 0) {
+        throw new Error(`Failed to delete document with id ${dispositiveID}`);
+      }
+  
+      return result;
+    } catch (error) {
+      console.error('Error deleting document from (Configurations) MongoDB:', error.message);
+      throw new Error('Error deleting document from (Configurations) MongoDB');
+    }
+  }
+  
+
   public async removeSensor(dispositiveID: number, sensorID: number) {
     const numericDispositiveID = Number(dispositiveID);
     const numericSensorID = Number(sensorID);
@@ -116,6 +140,17 @@ class MongoService extends EventEmitter {
       { DispositiveID: numericDispositiveID },
       { $pull: { Sensors: { sensorID: numericSensorID } } }
     );
+  }
+
+  public async removeSensorFromConfiguration(dispositiveID: number, sensorID: number) {
+    const collection = await this.getCollection('Configurations')
+    const result = await collection.updateOne(
+      { id: dispositiveID },
+      { $pull: { sensors: { id: sensorID } } }
+    )
+    console.log(`Removing sensor from Configuration ${dispositiveID}:`, sensorID)
+    console.log(`Result:`, result)
+    return result
   }
 
     public async updateOneSensor(collectionName: string, query: any, update: any, options: any = {}) {
