@@ -180,12 +180,12 @@
  *               dateBegin:
  *                 type: string
  *                 format: date-time
- *                 example: '2024-07-14T00:00:00Z'
+ *                 example: '2024-07-14 00:00:00'
  *                 description: Fecha de inicio del rango de fechas.
  *               dateFinish:
  *                 type: string
  *                 format: date-time
- *                 example: '2024-07-31T23:59:59Z'
+ *                 example: '2024-07-31 23:59:59'
  *                 description: Fecha de finalización del rango de fechas.
  *               sensorID:
  *                 type: number
@@ -228,7 +228,7 @@
  *                         timestamp:
  *                           type: string
  *                           format: date-time
- *                           example: '2023-07-15T10:00:00Z'
+ *                           example: '2023-07-15 10:00:00'
  *                         value:
  *                           type: number
  *                           example: 123.45

@@ -180,7 +180,7 @@ class MongoService extends EventEmitter {
     const agg = [
       { '$match': { 'DispositiveID': dispositiveID } },
       { '$unwind': '$Sensors' },
-      { '$match': { 'Sensors.sensorID': sensorID } },
+      { '$match': { 'Sensors.sensorID': sensorID, 'Sensors.active': true } },
       { '$unwind': '$Sensors.data' },
       { '$sort': { 'Sensors.data.timestamp': -1 } },
       { '$limit': 1 },
@@ -195,6 +195,7 @@ class MongoService extends EventEmitter {
         }
       }
     ]
+    
     return await this.aggregate('Dispositives', agg)
   }
 
