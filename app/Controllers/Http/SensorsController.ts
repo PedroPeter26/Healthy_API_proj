@@ -13,27 +13,27 @@ export default class SensorsController {
 
   public async getSensorTypes({ params, response }: HttpContextContract) {
     const dispositiveTypeName = params.type
-  
+
     const dispositiveType = await DispositiveType.query().where('name', dispositiveTypeName).first()
-    
+
     if (!dispositiveType) {
-        return response.status(404).json({ message: 'Dispositive type not found' })
+      return response.status(404).json({ message: 'Dispositive type not found' })
     }
 
     let sensorTypeIds: number[] = []
-    
+
     if (dispositiveType.id == 1) {
-        sensorTypeIds = [1, 2, 3, 4, 5, 6]
+      sensorTypeIds = [1, 2, 3, 4, 5, 6]
     } else if (dispositiveType.id == 2) {
-        sensorTypeIds = [7, 8]
+      sensorTypeIds = [7, 8]
     } else {
-        sensorTypeIds = []
+      sensorTypeIds = []
     }
-    
+
     const sensorTypes = await SensorType.query().whereIn('id', sensorTypeIds)
-  
+
     return response.status(200).json(sensorTypes)
-}
+  }
 
   // * POST /api/sensors/store
   public async store({ request, response }: HttpContextContract) {
@@ -103,9 +103,19 @@ export default class SensorsController {
   // * POST /sensors/last-data
   public async getLastData({ request, response }: HttpContextContract) {
     try {
+      // Validar entrada y convertir a número
       const { dispositiveID, sensorID } = request.only(['dispositiveID', 'sensorID'])
-      const data = await MongoService.getSensorLastData(dispositiveID, sensorID)
-      return response.json(data)
+      const dispositiveIDNum = parseInt(dispositiveID, 10)
+      const sensorIDNum = parseInt(sensorID, 10)
+
+      const data = await MongoService.getSensorLastData(dispositiveIDNum, sensorIDNum)
+      console.log('Sensor Data:', data) // Log para depuración
+
+      if (data.length === 0) {
+        return response.status(404).json({ message: 'No data found for the given sensor' })
+      }
+
+      return response.json(data[0])
     } catch (error) {
       console.error('Error fetching sensor data:', error)
       return response.status(500).json({ message: 'Internal Server Error' })
@@ -204,10 +214,10 @@ export default class SensorsController {
       sensorID: schema.number([rules.required()]),
       dispositiveID: schema.number([rules.required()])
     });
-  
+
     try {
       const { dateBegin, dateFinish, sensorID, dispositiveID } = await request.validate({ schema: reportSchema });
-  
+
       // Función para convertir fecha en formato ISO o personalizado
       const parseDate = (date: string) => {
         let dt = DateTime.fromISO(date.trim());
@@ -216,32 +226,32 @@ export default class SensorsController {
         }
         return dt;
       };
-  
+
       const cleanedDateBegin = parseDate(dateBegin);
       const cleanedDateFinish = parseDate(dateFinish);
-  
+
       if (!cleanedDateBegin.isValid || !cleanedDateFinish.isValid) {
         return response.status(400).json({ message: 'Invalid date format. Expected ISO or yyyy-MM-dd HH:mm:ss format' });
       }
-  
+
       // Convertir las fechas a ISO string
       const isoDateBegin = cleanedDateBegin.toISO();
       const isoDateFinish = cleanedDateFinish.toISO();
-  
+
       console.log('Request Params:', { isoDateBegin, isoDateFinish, sensorID, dispositiveID });
-  
+
       const report = await MongoService.reportBySensor(isoDateBegin, isoDateFinish, sensorID, dispositiveID);
-      
+
       if (!report || report.length === 0) {
         return response.status(404).json({ message: 'No data found for the given parameters' });
       }
-  
+
       return response.status(200).json(report);
     } catch (error) {
       if (error.messages) {
         return response.status(422).json({ message: 'Validation error', details: error.messages });
       }
-  
+
       console.error('Error generating report:', error);
       return response.status(500).json({ message: 'Internal Server Error' });
     }
