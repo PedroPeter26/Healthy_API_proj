@@ -10,4 +10,5 @@ Route.group(() => {
   Route.delete('/remove-sensor', 'SensorsController.destroy')
   Route.post('/sensor-list', 'SensorsController.getSensorsList')
   Route.post('/report-by-sensor', 'SensorsController.reportBySensor')
-}).prefix('/api/sensors')
+  Route.put('/update', 'SensorsController.update')
+}).prefix('/api/sensors').middleware('auth')

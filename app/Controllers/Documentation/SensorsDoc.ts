@@ -11,6 +11,8 @@
    * @swagger
    * /api/sensors/store:
    *   post:
+   *     security:
+   *      - bearerAuth: []
    *     tags:
    *       - Sensors
    *     summary: Create a new sensor
@@ -43,6 +45,8 @@
      * @swagger
      * /api/sensors/last-data:
      *   post:
+     *     security:
+     *      - bearerAuth: []
      *     tags:
      *       - Sensors
      *     summary: Returns last data from certain sensor
@@ -70,6 +74,8 @@
    * @swagger
    * /api/sensors/push-data:
    *   post:
+   *     security:
+   *      - bearerAuth: []
    *     tags:
    *       - Sensors
    *     summary: Push data to a sensor
@@ -100,6 +106,8 @@
    * @swagger
    * /api/sensors/remove-sensor:
    *   delete:
+   *     security:
+   *      - bearerAuth: []
    *     tags:
    *       - Sensors
    *     summary: Remove a sensor
@@ -129,6 +137,8 @@
    * @swagger
    * /api/sensors/sensor-list:
    *   post:
+   *     security:
+   *      - bearerAuth: []
    *     tags:
    *       - Sensors
    *     summary: Get a list of sensors for a dispositive
@@ -170,12 +180,12 @@
  *               dateBegin:
  *                 type: string
  *                 format: date-time
- *                 example: '2024-07-14T00:00:00Z'
+ *                 example: '2024-07-14 00:00:00'
  *                 description: Fecha de inicio del rango de fechas.
  *               dateFinish:
  *                 type: string
  *                 format: date-time
- *                 example: '2024-07-31T23:59:59Z'
+ *                 example: '2024-07-31 23:59:59'
  *                 description: Fecha de finalización del rango de fechas.
  *               sensorID:
  *                 type: number
@@ -218,7 +228,7 @@
  *                         timestamp:
  *                           type: string
  *                           format: date-time
- *                           example: '2023-07-15T10:00:00Z'
+ *                           example: '2023-07-15 10:00:00'
  *                         value:
  *                           type: number
  *                           example: 123.45
@@ -253,3 +263,95 @@
  *                   type: string
  *                   example: 'Internal Server Error'
  */
+
+    /**
+   * @swagger
+   * /api/sensors/update:
+   *   put:
+   *     tags:
+   *       - Sensors
+   *     summary: Update the active status of a sensor
+   *     security:
+   *       - bearerAuth: []
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             type: object
+   *             properties:
+   *               sensorID:
+   *                 type: integer
+   *                 example: 1
+   *                 description: ID of the sensor
+   *               dispositiveID:
+   *                 type: integer
+   *                 example: 1
+   *                 description: ID of the dispositive
+   *               active:
+   *                 type: boolean
+   *                 example: true
+   *                 description: New active status of the sensor
+   *     responses:
+   *       200:
+   *         description: Sensor status updated successfully
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 type:
+   *                   type: string
+   *                   example: Success
+   *                 title:
+   *                   type: string
+   *                   example: Sensor updated!
+   *                 message:
+   *                   type: string
+   *                   example: Sensor status updated successfully
+   *                 data:
+   *                   type: object
+   *                   description: The updated sensor object
+   *       404:
+   *         description: Sensor not found or not updated
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 message:
+   *                   type: string
+   *                   example: Sensor not found in relational database
+   *       422:
+   *         description: Validation error
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 type:
+   *                   type: string
+   *                   example: Error
+   *                 title:
+   *                   type: string
+   *                   example: Validation error
+   *                 message:
+   *                   type: object
+   *                   description: Validation error details
+   *       500:
+   *         description: Internal Server Error
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 type:
+   *                   type: string
+   *                   example: Error
+   *                 title:
+   *                   type: string
+   *                   example: Internal Server Error
+   *                 message:
+   *                   type: string
+   *                   example: Error updating sensor
+   */

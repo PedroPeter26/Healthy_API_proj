@@ -76,6 +76,22 @@ export default class SensorsController {
         return response.status(404).json({ message: 'Dispositive not found or sensor not added' })
       }
 
+      // Añadir sensor al documento en la colección 'Configurations' en MongoDB
+      const sensorConfigDocument = {
+        id: sensor.id,
+        type: sensorType.acronym
+      };
+
+      const configUpdateResult = await MongoService.updateOneSensor(
+        'Configurations',
+        { id: payload.dispositiveID },
+        { $push: { sensors: sensorConfigDocument } }
+      );
+
+      if (configUpdateResult.modifiedCount === 0) {
+        return response.status(404).json({ message: 'Dispositive not found or sensor not added to Configurations collection' });
+      }
+
       return response.status(201).json({
         type: 'Success',
         title: 'Sensor created!',
@@ -134,7 +150,73 @@ export default class SensorsController {
     }
   }
 
-  public async update({ }: HttpContextContract) { }
+  // * PUT /sensors/update
+  public async update({ request, response }: HttpContextContract) {
+    const updateSensorSchema = schema.create({
+      sensorID: schema.number([
+        rules.exists({ table: 'sensors', column: 'id' }),
+      ]),
+      dispositiveID: schema.number([
+        rules.exists({ table: 'dispositives', column: 'id' }),
+      ]),
+      active: schema.boolean(),
+    })
+
+    try {
+      const payload = await request.validate({ schema: updateSensorSchema })
+      const { sensorID, dispositiveID, active } = payload
+
+      const sensor = await Sensor.query()
+        .where('id', sensorID)
+        .andWhere('dispositiveId', dispositiveID)
+        .first()
+
+      if (!sensor) {
+        return response.status(404).json({ message: 'Sensor not found in relational database' })
+      }
+
+      if (sensor.active === active) {
+        return response.status(200).json({ message: `Sensor is already ${active ? 'active' : 'inactive'}` })
+      }
+
+      // Actualizar el estado del sensor en PostgreSQL
+      sensor.active = active
+      await sensor.save()
+
+      // Actualizar el estado del sensor en MongoDB
+      const result = await MongoService.updateOneSensor(
+        'Dispositives',
+        { DispositiveID: dispositiveID, 'Sensors.sensorID': sensorID },
+        { $set: { 'Sensors.$.active': active } }
+      )
+
+      if (result.modifiedCount === 0) {
+        return response.status(404).json({ message: 'Sensor not found or not updated in MongoDB' })
+      }
+
+      return response.status(200).json({
+        type: 'Success',
+        title: 'Sensor updated!',
+        message: 'Sensor status updated successfully',
+        data: sensor
+      })
+    } catch (error) {
+      if (error.messages) {
+        return response.status(422).json({
+          type: 'Error',
+          title: 'Validation error',
+          message: error.messages
+        })
+      }
+
+      console.error('Error updating sensor:', error)
+      return response.status(500).json({
+        type: 'Error',
+        title: 'Internal Server Error',
+        message: error.messages
+      })
+    }
+  }
 
   // ! DELETE /sensors/delete-dispositive
   // ? Remove
@@ -160,6 +242,11 @@ export default class SensorsController {
       const mongoResult = await MongoService.removeSensor(dispositiveID, sensorID)
       if (mongoResult.modifiedCount === 0) {
         return response.status(404).json({ message: 'Sensor not found or not removed in MongoDB' })
+      }
+
+      const configResult = await MongoService.removeSensorFromConfiguration(dispositiveID, sensorID)
+      if (configResult.modifiedCount === 0) {
+        return response.status(404).json({ message: 'Sensor not found or not removed in Configurations collection' })
       }
 
       const sensor = await Sensor.query()
@@ -209,51 +296,51 @@ export default class SensorsController {
   // * POST /sensors/report-by-sensor
   public async reportBySensor({ request, response }: HttpContextContract) {
     const reportSchema = schema.create({
-      dateBegin: schema.string({ trim: true }, [rules.required()]),
-      dateFinish: schema.string({ trim: true }, [rules.required()]),
-      sensorID: schema.number([rules.required()]),
-      dispositiveID: schema.number([rules.required()])
+        dateBegin: schema.string({ trim: true }, [rules.required()]),
+        dateFinish: schema.string({ trim: true }, [rules.required()]),
+        sensorID: schema.number([rules.required()]),
+        dispositiveID: schema.number([rules.required()])
     });
 
     try {
-      const { dateBegin, dateFinish, sensorID, dispositiveID } = await request.validate({ schema: reportSchema });
+        const { dateBegin, dateFinish, sensorID, dispositiveID } = await request.validate({ schema: reportSchema });
 
-      // Función para convertir fecha en formato ISO o personalizado
-      const parseDate = (date: string) => {
-        let dt = DateTime.fromISO(date.trim());
-        if (!dt.isValid) {
-          dt = DateTime.fromFormat(date.trim(), 'yyyy-MM-dd HH:mm:ss');
+        // Función para convertir fecha en formato ISO o personalizado
+        const parseDate = (date: string) => {
+            let dt = DateTime.fromISO(date.trim());
+            if (!dt.isValid) {
+                dt = DateTime.fromFormat(date.trim(), 'yyyy-MM-dd HH:mm:ss');
+            }
+            return dt;
+        };
+
+        const cleanedDateBegin = parseDate(dateBegin);
+        const cleanedDateFinish = parseDate(dateFinish);
+
+        if (!cleanedDateBegin.isValid || !cleanedDateFinish.isValid) {
+            return response.status(400).json({ message: 'Invalid date format. Expected ISO or yyyy-MM-dd HH:mm:ss format' });
         }
-        return dt;
-      };
 
-      const cleanedDateBegin = parseDate(dateBegin);
-      const cleanedDateFinish = parseDate(dateFinish);
+        // Convertir las fechas a yyyy-MM-dd HH:mm:ss string
+        const formattedDateBegin = cleanedDateBegin.toFormat('yyyy-MM-dd HH:mm:ss');
+        const formattedDateFinish = cleanedDateFinish.toFormat('yyyy-MM-dd HH:mm:ss');
 
-      if (!cleanedDateBegin.isValid || !cleanedDateFinish.isValid) {
-        return response.status(400).json({ message: 'Invalid date format. Expected ISO or yyyy-MM-dd HH:mm:ss format' });
-      }
+        console.log('Request Params:', { formattedDateBegin, formattedDateFinish, sensorID, dispositiveID });
 
-      // Convertir las fechas a ISO string
-      const isoDateBegin = cleanedDateBegin.toISO();
-      const isoDateFinish = cleanedDateFinish.toISO();
+        const report = await MongoService.reportBySensor(formattedDateBegin, formattedDateFinish, sensorID, dispositiveID);
 
-      console.log('Request Params:', { isoDateBegin, isoDateFinish, sensorID, dispositiveID });
+        if (!report || report.length === 0) {
+            return response.status(404).json({ message: 'No data found for the given parameters' });
+        }
 
-      const report = await MongoService.reportBySensor(isoDateBegin, isoDateFinish, sensorID, dispositiveID);
-
-      if (!report || report.length === 0) {
-        return response.status(404).json({ message: 'No data found for the given parameters' });
-      }
-
-      return response.status(200).json(report);
+        return response.status(200).json(report);
     } catch (error) {
-      if (error.messages) {
-        return response.status(422).json({ message: 'Validation error', details: error.messages });
-      }
+        if (error.messages) {
+            return response.status(422).json({ message: 'Validation error', details: error.messages });
+        }
 
-      console.error('Error generating report:', error);
-      return response.status(500).json({ message: 'Internal Server Error' });
+        console.error('Error generating report:', error);
+        return response.status(500).json({ message: 'Internal Server Error' });
     }
   }
 

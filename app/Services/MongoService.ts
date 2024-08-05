@@ -106,6 +106,30 @@ class MongoService extends EventEmitter {
     }
   }
 
+  //* Delete doc from Configuration collection
+  public async deleteConfiguration(dispositiveID: number) {
+    try {
+      const collection = await this.getCollection('Configurations');
+      const idToDelete = typeof dispositiveID === 'number' ? dispositiveID : parseInt(dispositiveID as unknown as string, 10);
+      const document = await collection.findOne({ 'id': idToDelete });
+  
+      if (!document) {
+        throw new Error(`Document with id ${dispositiveID} not found`);
+      }
+      const result = await collection.deleteOne({ 'id': idToDelete });
+  
+      if (result.deletedCount === 0) {
+        throw new Error(`Failed to delete document with id ${dispositiveID}`);
+      }
+  
+      return result;
+    } catch (error) {
+      console.error('Error deleting document from (Configurations) MongoDB:', error.message);
+      throw new Error('Error deleting document from (Configurations) MongoDB');
+    }
+  }
+  
+
   public async removeSensor(dispositiveID: number, sensorID: number) {
     const numericDispositiveID = Number(dispositiveID);
     const numericSensorID = Number(sensorID);
@@ -118,10 +142,25 @@ class MongoService extends EventEmitter {
     );
   }
 
-  public async updateOneSensor(collectionName: string, query: any, update: any, options: any = {}) {
-    const collection = await this.getCollection(collectionName)
-    return await collection.updateOne(query, update, options)
+  public async removeSensorFromConfiguration(dispositiveID: number, sensorID: number) {
+    const collection = await this.getCollection('Configurations')
+    const result = await collection.updateOne(
+      { id: dispositiveID },
+      { $pull: { sensors: { id: sensorID } } }
+    )
+    console.log(`Removing sensor from Configuration ${dispositiveID}:`, sensorID)
+    console.log(`Result:`, result)
+    return result
   }
+
+    public async updateOneSensor(collectionName: string, query: any, update: any, options: any = {}) {
+      const collection = await this.getCollection(collectionName)
+      const result = await collection.updateOne(query, update, options)
+      console.log(`Updating collection ${collectionName} with query:`, query)
+      console.log(`Update operation:`, update)
+      console.log(`Result:`, result)
+      return result
+    }
 
   public async insertOneDevice(collectionName: string, document: any) {
     const collection = await this.getCollection(collectionName)
@@ -141,7 +180,7 @@ class MongoService extends EventEmitter {
     const agg = [
       { '$match': { 'DispositiveID': dispositiveID } },
       { '$unwind': '$Sensors' },
-      { '$match': { 'Sensors.sensorID': sensorID } },
+      { '$match': { 'Sensors.sensorID': sensorID, 'Sensors.active': true } },
       { '$unwind': '$Sensors.data' },
       { '$sort': { 'Sensors.data.timestamp': -1 } },
       { '$limit': 1 },
@@ -156,6 +195,7 @@ class MongoService extends EventEmitter {
         }
       }
     ]
+    
     return await this.aggregate('Dispositives', agg)
   }
 
