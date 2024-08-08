@@ -176,6 +176,9 @@ export default class DispositivesController {
         { configurationOptionsId: 2, data: '500' },
         { configurationOptionsId: 3, data: '4' },
         { configurationOptionsId: 4, data: '100' }
+      ],
+      2: [
+        { configurationOptionsId: 5, data: '2000' },
       ]
     }
 
