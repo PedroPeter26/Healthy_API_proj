@@ -66,3 +66,49 @@
  *     tags:
  *       - UserConfigurations
  */
+
+/**
+   * @swagger
+   * /api/user-conf/index:
+   *   get:
+   *     tags:
+   *       - UserConfigurations
+   *     summary: Get user configurations by dispositive ID
+   *     security:
+   *       - bearerAuth: []
+   *     parameters:
+   *       - name: dispositive_id
+   *         in: query
+   *         required: true
+   *         schema:
+   *           type: integer
+   *         description: The ID of the dispositive
+   *     responses:
+   *       200:
+   *         description: List of user configurations
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: array
+   *               items:
+   *                 type: object
+   *                 properties:
+   *                   id:
+   *                     type: integer
+   *                   userId:
+   *                     type: integer
+   *                   dispositiveId:
+   *                     type: integer
+   *                   configurationOptionsId:
+   *                     type: integer
+   *                   data:
+   *                     type: string
+   *                   configurationOptionName:
+   *                     type: string
+   *       401:
+   *         description: Unauthorized
+   *       404:
+   *         description: User configurations not found
+   *       500:
+   *         description: Internal server error
+   */

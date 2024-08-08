@@ -4,6 +4,29 @@ import MongoService from 'App/Services/MongoService'
 
 export default class UserConfigurationsController {
 
+  // * GET
+  public async index({ request, response }: HttpContextContract) {
+    const dispositiveId = request.input('dispositive_id')
+
+    const userConfigurations = await UserConfiguration.query()
+      .where('dispositive_id', dispositiveId)
+      .preload('configurationOption') // Preload para incluir el campo name de configuration_options
+
+    const result = userConfigurations.map(config => {
+      return {
+        id: config.id,
+        userId: config.userId,
+        dispositiveId: config.dispositiveId,
+        configurationOptionsId: config.configurationOptionsId,
+        data: config.data,
+        configurationOptionName: config.configurationOption.name,
+      }
+    })
+
+    return response.status(200).json(result)
+  }
+
+  // * PUT
   public async update({ request, auth, response }: HttpContextContract) {
     const user = auth.user
     if (!user) {
